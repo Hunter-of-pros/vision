@@ -4,9 +4,8 @@ import { Upload, AlertTriangle, CheckCircle, Cpu, Radio } from 'lucide-react';
 const MACHINE_OPTIONS = [
   {
     id: 'pump',
-    name: 'Industrial Pump',
+    name: 'Pump',
     icon: '🚰',
-    subtitle: 'Centrifugal / Slurry Pump',
     freqFocus: 'High: Cavitation · Low: Shaft Imbalance',
     thresholdText: 'τ = 0.0201',
     samples: [
@@ -18,9 +17,8 @@ const MACHINE_OPTIONS = [
   },
   {
     id: 'valve',
-    name: 'Solenoid Valve',
+    name: 'Valve',
     icon: '⚙️',
-    subtitle: 'Pneumatic / Hydraulic Actuator',
     freqFocus: 'High: Air Leak · Mid: Spool Stiction',
     thresholdText: 'τ = 0.0155',
     samples: [
@@ -32,9 +30,8 @@ const MACHINE_OPTIONS = [
   },
   {
     id: 'fan',
-    name: 'Ventilation Fan',
+    name: 'Fan',
     icon: '🌀',
-    subtitle: 'Industrial Rotor & Blower',
     freqFocus: 'Low: Rotor Imbalance · High: Friction',
     thresholdText: 'τ = 0.0179',
     samples: [
@@ -120,7 +117,6 @@ export default function AudioUploader({
                   </span>
                   <span className="machine-card-badge">{m.thresholdText}</span>
                 </div>
-                <div className="machine-card-sub">{m.subtitle}</div>
                 <div className="machine-card-freq">{m.freqFocus}</div>
               </button>
             );

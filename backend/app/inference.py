@@ -14,7 +14,7 @@ DEFAULT_ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.020"))
 # Pre-calibrated machine baseline profiles (mu, sigma, band thresholds)
 MACHINE_BASELINES = {
     "pump": {
-        "name": "Industrial Pump (Centrifugal / Slurry)",
+        "name": "Pump",
         "mu": 0.0135,
         "sigma": 0.0022,
         "k_sigma": 3.0,
@@ -26,7 +26,7 @@ MACHINE_BASELINES = {
         },
     },
     "valve": {
-        "name": "Pneumatic Solenoid Valve",
+        "name": "Valve",
         "mu": 0.0095,
         "sigma": 0.0020,
         "k_sigma": 3.0,
@@ -38,7 +38,7 @@ MACHINE_BASELINES = {
         },
     },
     "fan": {
-        "name": "Industrial Ventilation Fan",
+        "name": "Fan",
         "mu": 0.0125,
         "sigma": 0.0018,
         "k_sigma": 3.0,

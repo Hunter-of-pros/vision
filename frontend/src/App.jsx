@@ -159,7 +159,7 @@ export default function App() {
                 <div style={{ textAlign: 'center', padding: '52px 20px', color: 'var(--text-muted)' }}>
                   <Cpu size={36} color="var(--accent-cyan)" style={{ opacity: 0.35, marginBottom: '12px' }} />
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    Ready to Inspect {selectedMachine === 'pump' ? 'Industrial Pump' : selectedMachine === 'valve' ? 'Solenoid Valve' : 'Ventilation Fan'}
+                    Ready to Inspect {selectedMachine === 'pump' ? 'Pump' : selectedMachine === 'valve' ? 'Valve' : 'Fan'}
                   </div>
                   <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-muted)' }}>
                     Baseline calibrated at τ = {selectedMachine === 'pump' ? '0.0201' : selectedMachine === 'valve' ? '0.0155' : '0.0179'}. Awaiting audio input.
