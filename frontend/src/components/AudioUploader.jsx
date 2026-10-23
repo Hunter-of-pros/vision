@@ -59,7 +59,7 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
 
       <div className="sample-selector">
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-          Test with real MIMII Fan recordings:
+          Test with real MIMII Valve recordings:
         </span>
         <div className="sample-buttons">
           <button
@@ -68,7 +68,7 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
             disabled={isAnalyzing}
             onClick={() => onSampleSelected('normal_id_00_00000000.wav', false)}
           >
-            <CheckCircle size={14} color="var(--success)" /> Normal Fan (ID 00)
+            <CheckCircle size={14} color="var(--success)" /> Normal Valve (ID 00)
           </button>
           <button
             type="button"
@@ -76,7 +76,7 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
             disabled={isAnalyzing}
             onClick={() => onSampleSelected('normal_id_02_00000000.wav', false)}
           >
-            <CheckCircle size={14} color="var(--success)" /> Normal Fan (ID 02)
+            <CheckCircle size={14} color="var(--success)" /> Normal Valve (ID 02)
           </button>
           <button
             type="button"
@@ -84,7 +84,7 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
             disabled={isAnalyzing}
             onClick={() => onSampleSelected('anomaly_id_00_00000000.wav', true)}
           >
-            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Fan (ID 00)
+            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Valve (ID 00)
           </button>
           <button
             type="button"
@@ -92,7 +92,7 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
             disabled={isAnalyzing}
             onClick={() => onSampleSelected('anomaly_id_02_00000000.wav', true)}
           >
-            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Fan (ID 02)
+            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Valve (ID 02)
           </button>
         </div>
       </div>
