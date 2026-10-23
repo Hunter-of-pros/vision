@@ -12,9 +12,7 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
   const dynamicThreshold = dynMetrics?.dynamic_threshold || threshold || 0.0201;
 
   const activeThreshold = thresholdMode === 'dynamic' ? dynamicThreshold : fixedThreshold;
-  const activeIsAnomaly = thresholdMode === 'dynamic'
-    ? (score >= activeThreshold || isAnomaly)
-    : (score >= fixedThreshold);
+  const activeIsAnomaly = score >= activeThreshold;
 
   // Meter percentage (0 to 0.20 range)
   const maxScale = 0.20;
