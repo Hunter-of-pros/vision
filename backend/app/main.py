@@ -11,7 +11,6 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import soundfile as sf
 import numpy as np
 
 load_dotenv()

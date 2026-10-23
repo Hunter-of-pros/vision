@@ -474,7 +474,20 @@ export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav'
     console.info('[Vision Edge Engine] Preset live API unreachable, executing simulated sample analysis:', err.message);
   }
 
-  // 2. Client-side Preset Fallback
+  // 2. Client-side Preset: Load real static MIMII WAV asset if available
+  try {
+    const sampleUrl = `/samples/${machineType}/${sampleFilename}`;
+    const audioRes = await fetch(sampleUrl, { signal: AbortSignal.timeout(4000) });
+    if (audioRes.ok) {
+      const arrayBuffer = await audioRes.arrayBuffer();
+      const { samples, sampleRate } = decodeWavPCM(arrayBuffer);
+      return processClientAudio(samples, sampleRate, machineType, sampleFilename, machineId);
+    }
+  } catch (sampleErr) {
+    console.info('[Vision Edge Engine] Static sample fetch fallback:', sampleErr.message);
+  }
+
+  // 3. Client-side Synthesized Preset Fallback
   const dummySamples = new Float32Array(160000);
   for (let i = 0; i < dummySamples.length; i++) {
     dummySamples[i] = (Math.random() - 0.5) * (isAnomaly ? 0.35 : 0.08);
