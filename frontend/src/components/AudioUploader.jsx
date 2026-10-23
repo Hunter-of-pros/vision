@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, AlertTriangle, CheckCircle, Cpu, Radio } from 'lucide-react';
 
 const MACHINE_OPTIONS = [
@@ -56,6 +56,12 @@ export default function AudioUploader({
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [selectedMachine]);
 
   const activeMachine = MACHINE_OPTIONS.find((m) => m.id === selectedMachine) || MACHINE_OPTIONS[0];
 

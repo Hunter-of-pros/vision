@@ -21,9 +21,6 @@ export default function App() {
       setBackendOnline(isOnline);
       const profile = await fetchModelProfile();
       setProfileData(profile);
-
-      // Trigger an initial demonstration analysis with calibrated pump recording
-      handleSampleSelect('normal_id_00_00000000.wav', false, 'pump');
     }
     init();
   }, []);
@@ -57,7 +54,8 @@ export default function App() {
 
   const handleMachineChange = (machineId) => {
     setSelectedMachine(machineId);
-    handleSampleSelect('normal_id_00_00000000.wav', false, machineId);
+    setSelectedFile(null);
+    setAnalysisResult(null);
   };
 
   return (
@@ -124,8 +122,14 @@ export default function App() {
               {analysisResult ? (
                 <Spectrogram spectrogramMatrix={analysisResult.spectrogram} />
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Upload audio to render Log-Mel frequency spectrum
+                <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                  <Activity size={32} color="var(--accent-purple)" style={{ opacity: 0.35, marginBottom: '10px' }} />
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    No Audio Clip Loaded
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    Upload or select a sample above to compute 64-band Log-Mel frequencies
+                  </div>
                 </div>
               )}
             </div>
@@ -152,8 +156,14 @@ export default function App() {
                   analysisResult={analysisResult}
                 />
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Awaiting inference input...
+                <div style={{ textAlign: 'center', padding: '52px 20px', color: 'var(--text-muted)' }}>
+                  <Cpu size={36} color="var(--accent-cyan)" style={{ opacity: 0.35, marginBottom: '12px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Ready to Inspect {selectedMachine === 'pump' ? 'Industrial Pump' : selectedMachine === 'valve' ? 'Solenoid Valve' : 'Ventilation Fan'}
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-muted)' }}>
+                    Baseline calibrated at τ = {selectedMachine === 'pump' ? '0.0201' : selectedMachine === 'valve' ? '0.0155' : '0.0179'}. Awaiting audio input.
+                  </div>
                 </div>
               )}
             </div>
