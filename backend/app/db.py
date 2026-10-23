@@ -11,6 +11,7 @@ Detection Schema:
 
 import os
 import re
+import threading
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
@@ -59,31 +60,15 @@ def get_mongo_collection():
         return None
 
 
-def resolve_machine_id(machine_type: str, filename: Optional[str] = None, explicit_id: Optional[str] = None) -> str:
-    """
-    Resolves standard machineId string (e.g. p001, v001, f001, m001).
-    Uses explicit_id if provided; otherwise derives from machine type and filename (e.g. id_00 -> p001).
-    """
-    if explicit_id:
-        return explicit_id.strip()
+_id_lock = threading.Lock()
+_in_memory_counters: Dict[str, int] = {}
 
-    m_type = (machine_type or "pump").lower().strip()
-    prefix_map = {
-        "pump": "p",
-        "valve": "v",
-        "fan": "f",
-        "motor": "m",
-    }
-    prefix = prefix_map.get(m_type, "p")
-
-    # If filename contains an ID number (e.g., id_00, id_02, id_04, id_06)
-    if filename:
-        match = re.search(r"id_(\d+)", filename.lower())
-        if match:
-            id_num = int(match.group(1)) + 1  # 00 -> 001, 02 -> 003 or index
-            return f"{prefix}{id_num:03d}"
-
-    return f"{prefix}001"
+PREFIX_MAP = {
+    "pump": "p",
+    "valve": "v",
+    "fan": "f",
+    "motor": "m",
+}
 
 
 def normalize_machine_type(machine_type: Optional[str]) -> str:
@@ -98,6 +83,84 @@ def normalize_machine_type(machine_type: Optional[str]) -> str:
     return "pump"
 
 
+def resolve_machine_id(machine_type: str, filename: Optional[str] = None, explicit_id: Optional[str] = None) -> str:
+    """
+    Resolves standard machineId string (e.g. p001, v001, f001, m001).
+    Uses explicit_id if provided; otherwise derives from machine type and filename (e.g. id_00 -> p001).
+    """
+    if explicit_id:
+        return explicit_id.strip()
+
+    m_type = normalize_machine_type(machine_type)
+    prefix = PREFIX_MAP.get(m_type, "p")
+
+    # If filename contains an ID number (e.g., id_00, id_02, id_04, id_06)
+    if filename:
+        match = re.search(r"id_(\d+)", filename.lower())
+        if match:
+            id_num = int(match.group(1)) + 1  # 00 -> 001, 02 -> 003 or index
+            return f"{prefix}{id_num:03d}"
+
+    return f"{prefix}001"
+
+
+def generate_unique_machine_id(
+    machine_type: str = "pump",
+    explicit_id: Optional[str] = None,
+) -> str:
+    """
+    Generates a unique sequential machine ID formatted as prefix + 3-digit number (e.g. p001, p002, v001, f001, m001).
+    Scans existing records in MongoDB so that IDs are strictly unique and never repeated.
+    """
+    m_type = normalize_machine_type(machine_type)
+    prefix = PREFIX_MAP.get(m_type, "p")
+
+    with _id_lock:
+        col = get_mongo_collection()
+
+        # If explicit_id provided and not already taken in the DB, use it
+        if explicit_id:
+            cand = explicit_id.strip()
+            if col is not None:
+                try:
+                    exists = col.find_one({"$or": [{"_id": cand}, {"machineId": cand}]})
+                    if not exists:
+                        return cand
+                except Exception:
+                    pass
+            else:
+                return cand
+
+        # Determine the highest existing numeric ID for this prefix
+        max_num = _in_memory_counters.get(prefix, 0)
+        if col is not None:
+            try:
+                regex_pattern = f"^{prefix}(\\d+)$"
+                cursor = col.find(
+                    {
+                        "$or": [
+                            {"machineId": {"$regex": regex_pattern}},
+                            {"_id": {"$regex": regex_pattern}},
+                        ]
+                    },
+                    {"machineId": 1, "_id": 1},
+                )
+                for doc in cursor:
+                    for key in ("machineId", "_id"):
+                        val = str(doc.get(key, ""))
+                        match = re.match(f"^{prefix}(\\d+)$", val)
+                        if match:
+                            num = int(match.group(1))
+                            if num > max_num:
+                                max_num = num
+            except Exception as e:
+                logger.warning(f"Error querying highest machineId from MongoDB: {e}")
+
+        next_num = max_num + 1
+        _in_memory_counters[prefix] = next_num
+        return f"{prefix}{next_num:03d}"
+
+
 def record_detection_event(
     anomaly_score: float,
     machine_type: str = "pump",
@@ -108,19 +171,22 @@ def record_detection_event(
 ) -> Dict[str, Any]:
     """
     Stores a detection event in MongoDB conforming to the required schema:
-      - machineId: e.g. p001, v001, f001, m001
+      - machineId: e.g. p001, v001, f001, m001 (guaranteed unique per detection)
       - machineType: pump, valve, fan, or motor
       - status: normal or anomaly
       - anomalyScore: numeric anomaly score produced by the model
       - timestamp: UTC datetime
+    Note: Uses machineId directly as _id to completely remove the default ObjectId.
     """
-    resolved_machine_id = resolve_machine_id(machine_type, filename=filename, explicit_id=machine_id)
     norm_machine_type = normalize_machine_type(machine_type)
+    resolved_machine_id = generate_unique_machine_id(norm_machine_type, explicit_id=machine_id)
     status_str = "anomaly" if is_anomaly else "normal"
     utc_timestamp = timestamp or datetime.now(timezone.utc)
 
-    # Construct document strictly according to schema
+    # Construct document strictly according to schema, assigning resolved_machine_id as _id
+    # to eliminate default ObjectId and ensure unique primary key across all records
     detection_doc = {
+        "_id": str(resolved_machine_id),
         "machineId": str(resolved_machine_id),
         "machineType": str(norm_machine_type),
         "status": str(status_str),
@@ -131,15 +197,12 @@ def record_detection_event(
     try:
         col = get_mongo_collection()
         if col is not None:
-            result = col.insert_one(detection_doc)
-            detection_doc["_id"] = str(result.inserted_id)
-            logger.info(f"Stored detection record in MongoDB: machineId={resolved_machine_id}, status={status_str}, score={anomaly_score}")
+            col.insert_one(detection_doc)
+            logger.info(f"Stored detection record in MongoDB: _id={resolved_machine_id}, machineId={resolved_machine_id}, status={status_str}, score={anomaly_score}")
         else:
             logger.warning("MongoDB collection unavailable; detection event processed without persistence.")
-            detection_doc["_id"] = "offline_local"
     except (PyMongoError, ServerSelectionTimeoutError, Exception) as e:
         logger.error(f"Failed to persist detection record to MongoDB: {e}")
-        detection_doc["_id"] = "offline_error"
 
     return detection_doc
 
