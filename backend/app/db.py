@@ -22,6 +22,14 @@ from typing import Dict, Any, Optional, List
 from bson import ObjectId
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded from backend/.env or root .env
+_base_path = Path(__file__).resolve().parent.parent
+for _candidate in [_base_path / ".env", _base_path.parent / ".env", _base_path.parent / ".env.local"]:
+    if _candidate.exists():
+        load_dotenv(_candidate, override=True)
 
 logger = logging.getLogger("vision.db")
 
@@ -46,17 +54,31 @@ def get_mongo_collection():
     """
     Returns the MongoDB collection singleton with lazy initialization and index creation.
     """
-    global _client, _db, _collection
+    global _client, _db, _collection, MONGODB_URI, MONGODB_DB_NAME, MONGODB_COLLECTION_NAME
     if _collection is not None:
         return _collection
 
+    # Re-read in case env vars were set after module import
+    MONGODB_URI = os.getenv("MONGODB_URI", MONGODB_URI)
+    MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", MONGODB_DB_NAME)
+    MONGODB_COLLECTION_NAME = os.getenv("MONGODB_COLLECTION_NAME", MONGODB_COLLECTION_NAME)
+
     try:
-        _client = MongoClient(
-            MONGODB_URI,
-            serverSelectionTimeoutMS=2000,
-            connectTimeoutMS=2000,
-            socketTimeoutMS=3000,
-        )
+        import certifi
+        ca_file = certifi.where()
+    except Exception:
+        ca_file = None
+
+    try:
+        mongo_kwargs = {
+            "serverSelectionTimeoutMS": 6000,
+            "connectTimeoutMS": 6000,
+            "socketTimeoutMS": 6000,
+        }
+        if ca_file:
+            mongo_kwargs["tlsCAFile"] = ca_file
+
+        _client = MongoClient(MONGODB_URI, **mongo_kwargs)
         _db = _client[MONGODB_DB_NAME]
         _collection = _db[MONGODB_COLLECTION_NAME]
 

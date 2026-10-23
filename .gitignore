@@ -43,6 +43,7 @@ pnpm-debug.log*
 # Environment & IDE
 .env
 .env.local
+.vercel
 .DS_Store
 .vscode/
 .idea/

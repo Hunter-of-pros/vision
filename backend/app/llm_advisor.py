@@ -177,15 +177,24 @@ Provide an executive industrial health assessment in JSON format with:
 
 IMPORTANT: Return ONLY raw, valid JSON with key "summary". Do not include root causes, solutions, or preventive measures since the asset is completely healthy. Do not wrap in markdown code blocks."""
 
-        # Use Gemini 3.5 Flash as primary model
-        candidate_models = ["gemini-3.5-flash", "gemini-flash-latest"]
+        # Use Gemini 2.5 Flash as primary model
+        candidate_models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"]
         last_error = None
         for model_name in candidate_models:
             try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
+                try:
+                    from google.genai import types
+                    cfg = types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2)
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=cfg,
+                    )
+                except Exception:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                    )
                 text = response.text.strip()
                 # Clean up if markdown code fence is returned
                 if text.startswith("```json"):
