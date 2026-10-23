@@ -102,7 +102,13 @@ class AnomalyDetector:
     def _load_model(self):
         """Loads PyTorch model if available, otherwise attempts TFLite interpreter."""
         # 1. Try PyTorch model
-        possible_pt_paths = [self.torch_model_path, "models/autoencoder.pt"]
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        possible_pt_paths = [
+            self.torch_model_path,
+            os.path.join(backend_dir, "models", "autoencoder.pt"),
+            "backend/models/autoencoder.pt",
+            "models/autoencoder.pt",
+        ]
         for p in possible_pt_paths:
             if os.path.exists(p):
                 try:

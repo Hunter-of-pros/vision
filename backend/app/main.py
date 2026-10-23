@@ -159,10 +159,19 @@ def analyze_preset_sample(
     target_machine = (machine_type or "pump").lower()
 
     sample_path = None
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_dir = os.path.dirname(app_dir)
+    root_dir = os.path.dirname(backend_dir)
+
     if filename:
         candidate_paths = [
+            os.path.join(backend_dir, "samples", target_machine, filename),
+            os.path.join("backend", "samples", target_machine, filename),
+            os.path.join("samples", target_machine, filename),
             os.path.join(f"data/{target_machine}/train", filename),
             os.path.join(f"data/{target_machine}/test", filename),
+            os.path.join(root_dir, "data", target_machine, "train", filename),
+            os.path.join(root_dir, "data", target_machine, "test", filename),
             os.path.join("data/pump/train", filename),
             os.path.join("data/pump/test", filename),
             os.path.join("data/valve/train", filename),
