@@ -89,18 +89,65 @@ function generateMockResult(filename, isAnomaly) {
     spectrogram.push(row);
   }
 
-  const score = isAnomaly ? 0.0385 : 0.0121;
-  const threshold = 0.020;
-  const detected = score >= threshold;
+  const score = isAnomaly ? 0.0450 : 0.0121;
+  const dynThreshold = 0.0201;
+  const detected = score >= dynThreshold;
 
   return {
     filename: filename,
     sample_rate: 16000,
     duration_sec: 2.05,
     score: score,
-    threshold: threshold,
+    threshold: dynThreshold,
+    fixed_threshold: 0.020,
     is_anomaly: detected,
     status: detected ? 'ANOMALY' : 'NORMAL',
+    decision_mode: 'DYNAMIC_STATISTICAL',
+    dynamic_metrics: {
+      machine_type: 'PUMP',
+      machine_name: 'Industrial Pump (Centrifugal / Slurry)',
+      baseline_mean: 0.0135,
+      baseline_std: 0.0022,
+      k_sigma: 3.0,
+      z_score: isAnomaly ? 14.3 : -0.64,
+      confidence_pct: 99.9,
+      dynamic_threshold: dynThreshold,
+      fixed_threshold: 0.020,
+      ema_noise_baseline: 0.0134,
+      formula: 'μ (0.0135) + 3σ (0.0066) = 0.0201',
+    },
+    frequency_bands: [
+      {
+        id: 'low',
+        name: 'Low Band (0 - 1 kHz)',
+        diagnostic: 'Low Band: Hydraulic Imbalance & Shaft Vibration',
+        error: isAnomaly ? 0.028 : 0.014,
+        threshold: 0.024,
+        is_anomaly: isAnomaly,
+        ratio: isAnomaly ? 1.17 : 0.58,
+      },
+      {
+        id: 'mid',
+        name: 'Mid Band (1 - 4 kHz)',
+        diagnostic: 'Mid Band: Impeller Vane Pass & Seal Degradation',
+        error: isAnomaly ? 0.035 : 0.015,
+        threshold: 0.022,
+        is_anomaly: isAnomaly,
+        ratio: isAnomaly ? 1.59 : 0.68,
+      },
+      {
+        id: 'high',
+        name: 'High Band (4 - 8 kHz)',
+        diagnostic: 'High Band: Fluid Cavitation & Bearing Friction',
+        error: isAnomaly ? 0.052 : 0.009,
+        threshold: 0.020,
+        is_anomaly: isAnomaly,
+        ratio: isAnomaly ? 2.60 : 0.45,
+      },
+    ],
+    primary_defect_band: isAnomaly
+      ? 'High Band (4 - 8 kHz): Fluid Cavitation & Bearing Friction'
+      : 'Uniformly Nominal (All Frequency Bands Within 3-Sigma Limits)',
     latency_ms: 11.4,
     spectrogram: spectrogram,
     reconstructed_spectrogram: spectrogram,

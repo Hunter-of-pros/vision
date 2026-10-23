@@ -140,6 +140,7 @@ export default function App() {
                   score={analysisResult.score}
                   threshold={analysisResult.threshold}
                   isAnomaly={analysisResult.is_anomaly}
+                  analysisResult={analysisResult}
                 />
               ) : (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>

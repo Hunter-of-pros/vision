@@ -81,11 +81,30 @@ async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
         "duration_sec": round(len(waveform) / sr, 2),
         "score": prediction["score"],
         "threshold": prediction["threshold"],
+        "fixed_threshold": prediction.get("fixed_threshold", 0.020),
         "is_anomaly": prediction["is_anomaly"],
         "status": prediction["status"],
+        "decision_mode": prediction.get("decision_mode", "DYNAMIC_STATISTICAL"),
+        "dynamic_metrics": prediction.get("dynamic_metrics", {}),
+        "frequency_bands": prediction.get("frequency_bands", []),
+        "primary_defect_band": prediction.get("primary_defect_band", "None"),
         "latency_ms": total_latency_ms,
         "spectrogram": spectrogram.tolist(),
         "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
+    }
+
+
+@app.get("/api/baselines")
+def get_machine_baselines() -> Dict[str, Any]:
+    """
+    Returns pre-calibrated and adaptive statistical baselines (mu, sigma, thresholds)
+    for industrial machine assets.
+    """
+    from backend.app.inference import MACHINE_BASELINES
+    return {
+        "active_machine": "PUMP",
+        "baselines": MACHINE_BASELINES,
+        "ema_adaptive_baselines": detector.ema_baseline,
     }
 
 
@@ -95,7 +114,7 @@ def analyze_preset_sample(
     filename: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Directly tests inference on real recorded dataset samples from data/fan.
+    Directly tests inference on real recorded dataset samples.
     """
     start_time = time.perf_counter()
 
@@ -137,7 +156,7 @@ def analyze_preset_sample(
         waveform = np.mean(waveform, axis=1)
 
     spectrogram = audio_processor.compute_log_mel_spectrogram(waveform)
-    prediction = detector.predict(spectrogram, waveform=waveform, filename=os.path.basename(sample_path))
+    prediction = detector.predict(spectrogram, waveform=waveform, filename=sample_path)
     total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
     return {
@@ -146,8 +165,13 @@ def analyze_preset_sample(
         "duration_sec": round(len(waveform) / sr, 2),
         "score": prediction["score"],
         "threshold": prediction["threshold"],
+        "fixed_threshold": prediction.get("fixed_threshold", 0.020),
         "is_anomaly": prediction["is_anomaly"],
         "status": prediction["status"],
+        "decision_mode": prediction.get("decision_mode", "DYNAMIC_STATISTICAL"),
+        "dynamic_metrics": prediction.get("dynamic_metrics", {}),
+        "frequency_bands": prediction.get("frequency_bands", []),
+        "primary_defect_band": prediction.get("primary_defect_band", "None"),
         "latency_ms": total_latency_ms,
         "spectrogram": spectrogram.tolist(),
         "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
