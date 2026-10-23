@@ -20,6 +20,7 @@ from app.audio import AudioProcessor
 from app.inference import AnomalyDetector
 from app.profiler import ModelProfiler
 from app.llm_advisor import generate_anomaly_advice
+from app.db import record_detection_event, get_recent_detections, get_mongo_collection
 
 app = FastAPI(
     title="Vision - Industrial Acoustic Anomaly Detection API",
@@ -58,10 +59,11 @@ def get_model_profile() -> Dict[str, Any]:
 async def analyze_audio(
     file: UploadFile = File(...),
     machine_type: Optional[str] = Form(None),
+    machine_id: Optional[str] = Form(None),
 ) -> Dict[str, Any]:
     """
     Accepts an uploaded .wav audio file and machine_type (pump/valve/fan), extracts Log-Mel Spectrogram,
-    computes Autoencoder reconstruction error, and returns anomaly status.
+    computes Autoencoder reconstruction error, stores the anomaly score in MongoDB, and returns anomaly status.
     """
     if not file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg")):
         raise HTTPException(status_code=400, detail="Only audio files (.wav, .flac, .mp3) are supported.")
@@ -83,6 +85,15 @@ async def analyze_audio(
 
     total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
+    # Store detection record in MongoDB conforming to required schema
+    detection_record = record_detection_event(
+        anomaly_score=prediction["score"],
+        machine_type=machine_type or "pump",
+        is_anomaly=prediction["is_anomaly"],
+        machine_id=machine_id,
+        filename=file.filename,
+    )
+
     return {
         "filename": file.filename,
         "sample_rate": sr,
@@ -99,6 +110,14 @@ async def analyze_audio(
         "latency_ms": total_latency_ms,
         "spectrogram": spectrogram.tolist(),
         "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
+        "detection_record": {
+            "machineId": detection_record["machineId"],
+            "machineType": detection_record["machineType"],
+            "status": detection_record["status"],
+            "anomalyScore": detection_record["anomalyScore"],
+            "timestamp": detection_record["timestamp"].isoformat() if hasattr(detection_record["timestamp"], "isoformat") else str(detection_record["timestamp"]),
+            "recordId": str(detection_record.get("_id", "")),
+        },
     }
 
 
@@ -121,9 +140,11 @@ def analyze_preset_sample(
     sample_type: str = Query("normal", pattern="^(normal|anomaly)$"),
     filename: Optional[str] = None,
     machine_type: Optional[str] = Query(None),
+    machine_id: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """
-    Directly tests inference on real recorded dataset samples based on machine type.
+    Directly tests inference on real recorded dataset samples based on machine type,
+    stores the anomaly score in MongoDB, and returns detection results.
     """
     start_time = time.perf_counter()
     target_machine = (machine_type or "pump").lower()
@@ -175,6 +196,15 @@ def analyze_preset_sample(
     prediction = detector.predict(spectrogram, waveform=waveform, filename=sample_path, machine_type=target_machine)
     total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
+    # Store detection record in MongoDB conforming to required schema
+    detection_record = record_detection_event(
+        anomaly_score=prediction["score"],
+        machine_type=target_machine,
+        is_anomaly=prediction["is_anomaly"],
+        machine_id=machine_id,
+        filename=os.path.basename(sample_path),
+    )
+
     return {
         "filename": os.path.basename(sample_path),
         "sample_rate": sr,
@@ -191,7 +221,60 @@ def analyze_preset_sample(
         "latency_ms": total_latency_ms,
         "spectrogram": spectrogram.tolist(),
         "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
+        "detection_record": {
+            "machineId": detection_record["machineId"],
+            "machineType": detection_record["machineType"],
+            "status": detection_record["status"],
+            "anomalyScore": detection_record["anomalyScore"],
+            "timestamp": detection_record["timestamp"].isoformat() if hasattr(detection_record["timestamp"], "isoformat") else str(detection_record["timestamp"]),
+            "recordId": str(detection_record.get("_id", "")),
+        },
     }
+
+
+@app.get("/api/detections")
+def list_detections(
+    limit: int = Query(50, ge=1, le=500),
+    machine_type: Optional[str] = Query(None),
+    machine_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None, pattern="^(normal|anomaly)$"),
+) -> Dict[str, Any]:
+    """
+    Retrieves stored anomaly detection records from MongoDB.
+    """
+    records = get_recent_detections(
+        limit=limit,
+        machine_type=machine_type,
+        machine_id=machine_id,
+        status=status,
+    )
+    return {
+        "count": len(records),
+        "records": records,
+    }
+
+
+@app.get("/api/detections/stats")
+def get_detections_stats() -> Dict[str, Any]:
+    """
+    Returns high-level statistics of stored detections from MongoDB.
+    """
+    col = get_mongo_collection()
+    if col is None:
+        return {"status": "mongodb_unavailable", "total": 0, "normal": 0, "anomaly": 0}
+
+    try:
+        total = col.count_documents({})
+        normal_count = col.count_documents({"status": "normal"})
+        anomaly_count = col.count_documents({"status": "anomaly"})
+        return {
+            "status": "connected",
+            "total_detections": total,
+            "normal_detections": normal_count,
+            "anomaly_detections": anomaly_count,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "total": 0}
 
 
 class LLMAdviceRequest(BaseModel):
