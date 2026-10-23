@@ -66,14 +66,28 @@ export async function analyzeAudioFile(file, isMockAnomaly = false, machineType 
     formData.append('machine_id', machineId);
   }
 
-  const res = await fetch(`${API_BASE}/analyze`, {
+  const query = new URLSearchParams({
+    machine_type: machineType,
+    machine_id: machineId || '',
+  });
+
+  const res = await fetch(`${API_BASE}/analyze?${query.toString()}`, {
     method: 'POST',
     body: formData,
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to process audio file: ${res.statusText}`);
+    let errorDetail = res.statusText;
+    try {
+      const errJson = await res.json();
+      errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+    } catch {
+      try {
+        errorDetail = await res.text();
+      } catch {}
+    }
+    throw new Error(`Backend Error (${res.status}): ${errorDetail || 'Processing failed'}`);
   }
   const data = await res.json();
   data.is_live = true;

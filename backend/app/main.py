@@ -52,22 +52,27 @@ profiler = ModelProfiler()
 
 
 @app.get("/api/health")
+@app.get("/health")
 def health_check() -> Dict[str, str]:
     """Basic health check endpoint."""
     return {"status": "ok", "service": "vision-acoustic-ai"}
 
 
 @app.get("/api/profile")
+@app.get("/profile")
 def get_model_profile() -> Dict[str, Any]:
     """Returns memory footprint, quantization format, and latency benchmark."""
     return profiler.get_full_profile()
 
 
 @app.post("/api/analyze")
+@app.post("/analyze")
 async def analyze_audio(
     file: UploadFile = File(...),
     machine_type: Optional[str] = Form(None),
     machine_id: Optional[str] = Form(None),
+    machine_type_query: Optional[str] = Query(None, alias="machine_type"),
+    machine_id_query: Optional[str] = Query(None, alias="machine_id"),
 ) -> Dict[str, Any]:
     """
     Accepts an uploaded .wav audio file and machine_type (pump/valve/fan), extracts Log-Mel Spectrogram,
@@ -77,6 +82,8 @@ async def analyze_audio(
         raise HTTPException(status_code=400, detail="Only audio files (.wav, .flac, .mp3) are supported.")
 
     start_time = time.perf_counter()
+    target_machine = (machine_type or machine_type_query or "pump").lower()
+    target_machine_id = machine_id or machine_id_query or "p001"
 
     try:
         audio_bytes = await file.read()
@@ -87,7 +94,7 @@ async def analyze_audio(
 
     # Run inference
     try:
-        prediction = detector.predict(spectrogram, waveform=waveform, filename=file.filename, machine_type=machine_type)
+        prediction = detector.predict(spectrogram, waveform=waveform, filename=file.filename, machine_type=target_machine)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
@@ -96,9 +103,9 @@ async def analyze_audio(
     # Store detection record in MongoDB conforming to required schema
     detection_record = record_detection_event(
         anomaly_score=prediction["score"],
-        machine_type=machine_type or "pump",
+        machine_type=target_machine,
         is_anomaly=prediction["is_anomaly"],
-        machine_id=machine_id,
+        machine_id=target_machine_id,
         filename=file.filename,
         defect_band=prediction.get("primary_defect_band", "Mid-Frequency"),
     )
@@ -131,6 +138,7 @@ async def analyze_audio(
 
 
 @app.get("/api/baselines")
+@app.get("/baselines")
 def get_machine_baselines() -> Dict[str, Any]:
     """
     Returns pre-calibrated and adaptive statistical baselines (mu, sigma, thresholds)
@@ -145,6 +153,7 @@ def get_machine_baselines() -> Dict[str, Any]:
 
 
 @app.get("/api/sample-analyze")
+@app.get("/sample-analyze")
 def analyze_preset_sample(
     sample_type: str = Query("normal", pattern="^(normal|anomaly)$"),
     filename: Optional[str] = None,
@@ -206,7 +215,9 @@ def analyze_preset_sample(
             raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data directories")
         sample_path = candidates[0]
 
-    waveform, sr = sf.read(sample_path)
+    with open(sample_path, "rb") as f:
+        audio_bytes = f.read()
+    waveform, sr = audio_processor.load_audio_from_bytes(audio_bytes)
     if waveform.ndim > 1:
         waveform = np.mean(waveform, axis=1)
 
@@ -252,6 +263,7 @@ def analyze_preset_sample(
 
 
 @app.get("/api/detections")
+@app.get("/detections")
 def list_detections(
     limit: int = Query(50, ge=1, le=500),
     machine_type: Optional[str] = Query(None),
@@ -274,6 +286,7 @@ def list_detections(
 
 
 @app.get("/api/detections/stats")
+@app.get("/detections/stats")
 def get_detections_stats() -> Dict[str, Any]:
     """
     Returns high-level statistics of stored detections from MongoDB.
@@ -304,6 +317,7 @@ class ReassignAnomalyRequest(BaseModel):
 
 
 @app.get("/api/machines")
+@app.get("/machines")
 def list_machines(machine_type: Optional[str] = Query(None)) -> Dict[str, Any]:
     """
     Returns all registered machines with inspection & anomaly counts and current health status.
@@ -313,6 +327,7 @@ def list_machines(machine_type: Optional[str] = Query(None)) -> Dict[str, Any]:
 
 
 @app.get("/api/machines/{machine_id}/history")
+@app.get("/machines/{machine_id}/history")
 def get_machine_history(machine_id: str) -> Dict[str, Any]:
     """
     Retrieves chronological inspection & anomaly test history for a specific machine ID.
@@ -322,6 +337,7 @@ def get_machine_history(machine_id: str) -> Dict[str, Any]:
 
 
 @app.get("/api/machines/{machine_id}/prognostics")
+@app.get("/machines/{machine_id}/prognostics")
 def get_machine_prognostics(machine_id: str) -> Dict[str, Any]:
     """
     Analyses the pattern, frequency of occurrence, and cause of faults
@@ -331,6 +347,7 @@ def get_machine_prognostics(machine_id: str) -> Dict[str, Any]:
 
 
 @app.post("/api/machines/reassign-anomaly")
+@app.post("/machines/reassign-anomaly")
 def reassign_anomaly(req: ReassignAnomalyRequest) -> Dict[str, Any]:
     """
     Updates or re-assigns an anomaly detection record to an existing or new machine ID,
@@ -365,6 +382,7 @@ class LLMAdviceRequest(BaseModel):
 
 
 @app.post("/api/llm-advice")
+@app.post("/llm-advice")
 def get_llm_anomaly_advice(req: LLMAdviceRequest) -> Dict[str, Any]:
     """
     Invokes Gemini LLM to generate root causes, solutions, and preventive measures

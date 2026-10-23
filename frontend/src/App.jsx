@@ -15,6 +15,7 @@ export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -33,12 +34,14 @@ export default function App() {
   const handleFileSelect = async (file) => {
     setSelectedFile(file);
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       const result = await analyzeAudioFile(file, false, selectedMachine, selectedMachineId);
       setAnalysisResult(result);
       setRefreshTrigger((prev) => prev + 1);
     } catch (err) {
       console.error(err);
+      setAnalysisError(err.message || 'Failed to analyze uploaded audio clip. Please check backend connection.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -48,12 +51,14 @@ export default function App() {
     const machine = machineOverride || selectedMachine;
     setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       const result = await analyzePreset(sampleName, isAnomaly, machine, selectedMachineId);
       setAnalysisResult(result);
       setRefreshTrigger((prev) => prev + 1);
     } catch (err) {
       console.error(err);
+      setAnalysisError(err.message || 'Failed to process sample audio clip. Please check backend connection.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -169,6 +174,30 @@ export default function App() {
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Reconstruction Engine</span>
             </div>
             <div className="card-body">
+              {analysisError && (
+                <div
+                  style={{
+                    padding: '16px',
+                    borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid var(--danger)',
+                    color: '#fca5a5',
+                    fontSize: '13px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                  }}
+                >
+                  <AlertTriangle size={18} color="var(--danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '4px' }}>
+                      Audio Analysis Request Failed
+                    </div>
+                    <div>{analysisError}</div>
+                  </div>
+                </div>
+              )}
               {analysisResult ? (
                 <>
                   <AnomalyGauge
