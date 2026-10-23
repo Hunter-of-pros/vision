@@ -7,7 +7,7 @@ import os
 import glob
 import time
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 import soundfile as sf
 import numpy as np
@@ -50,9 +50,12 @@ def get_model_profile() -> Dict[str, Any]:
 
 
 @app.post("/api/analyze")
-async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def analyze_audio(
+    file: UploadFile = File(...),
+    machine_type: Optional[str] = Form(None),
+) -> Dict[str, Any]:
     """
-    Accepts an uploaded .wav audio file, extracts Log-Mel Spectrogram,
+    Accepts an uploaded .wav audio file and machine_type (pump/valve/fan), extracts Log-Mel Spectrogram,
     computes Autoencoder reconstruction error, and returns anomaly status.
     """
     if not file.filename.lower().endswith((".wav", ".mp3", ".flac", ".ogg")):
@@ -69,7 +72,7 @@ async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
 
     # Run inference
     try:
-        prediction = detector.predict(spectrogram, waveform=waveform, filename=file.filename)
+        prediction = detector.predict(spectrogram, waveform=waveform, filename=file.filename, machine_type=machine_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
@@ -112,15 +115,19 @@ def get_machine_baselines() -> Dict[str, Any]:
 def analyze_preset_sample(
     sample_type: str = Query("normal", pattern="^(normal|anomaly)$"),
     filename: Optional[str] = None,
+    machine_type: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """
-    Directly tests inference on real recorded dataset samples.
+    Directly tests inference on real recorded dataset samples based on machine type.
     """
     start_time = time.perf_counter()
+    target_machine = (machine_type or "pump").lower()
 
     sample_path = None
     if filename:
         candidate_paths = [
+            os.path.join(f"data/{target_machine}/train", filename),
+            os.path.join(f"data/{target_machine}/test", filename),
             os.path.join("data/pump/train", filename),
             os.path.join("data/pump/test", filename),
             os.path.join("data/valve/train", filename),
@@ -134,18 +141,22 @@ def analyze_preset_sample(
                 break
 
     if not sample_path:
-        if sample_type == "normal":
-            candidates = (
-                glob.glob("data/pump/train/normal_*.wav")
-                + glob.glob("data/valve/train/normal_*.wav")
-                + glob.glob("data/fan/train/normal_*.wav")
-            )
-        else:
-            candidates = (
-                glob.glob("data/pump/test/anomaly_*.wav")
-                + glob.glob("data/valve/test/anomaly_*.wav")
-                + glob.glob("data/fan/test/anomaly_*.wav")
-            )
+        subfolder = "train" if sample_type == "normal" else "test"
+        prefix = "normal_" if sample_type == "normal" else "anomaly_"
+        candidates = glob.glob(f"data/{target_machine}/{subfolder}/{prefix}*.wav")
+        if not candidates:
+            if sample_type == "normal":
+                candidates = (
+                    glob.glob("data/pump/train/normal_*.wav")
+                    + glob.glob("data/valve/train/normal_*.wav")
+                    + glob.glob("data/fan/train/normal_*.wav")
+                )
+            else:
+                candidates = (
+                    glob.glob("data/pump/test/anomaly_*.wav")
+                    + glob.glob("data/valve/test/anomaly_*.wav")
+                    + glob.glob("data/fan/test/anomaly_*.wav")
+                )
 
         if not candidates:
             raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data directories")
@@ -156,7 +167,7 @@ def analyze_preset_sample(
         waveform = np.mean(waveform, axis=1)
 
     spectrogram = audio_processor.compute_log_mel_spectrogram(waveform)
-    prediction = detector.predict(spectrogram, waveform=waveform, filename=sample_path)
+    prediction = detector.predict(spectrogram, waveform=waveform, filename=sample_path, machine_type=target_machine)
     total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
     return {

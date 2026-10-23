@@ -7,6 +7,7 @@ import MetricsCard from './components/MetricsCard';
 import { analyzeAudioFile, analyzePreset, fetchModelProfile, checkBackendHealth } from './services/api';
 
 export default function App() {
+  const [selectedMachine, setSelectedMachine] = useState('pump');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -21,8 +22,8 @@ export default function App() {
       const profile = await fetchModelProfile();
       setProfileData(profile);
 
-      // Trigger an initial normal demonstration analysis with real fan recording
-      handleSampleSelect('normal_id_00_00000000.wav', false);
+      // Trigger an initial demonstration analysis with calibrated pump recording
+      handleSampleSelect('normal_id_00_00000000.wav', false, 'pump');
     }
     init();
   }, []);
@@ -31,7 +32,7 @@ export default function App() {
     setSelectedFile(file);
     setIsAnalyzing(true);
     try {
-      const result = await analyzeAudioFile(file, false);
+      const result = await analyzeAudioFile(file, false, selectedMachine);
       setAnalysisResult(result);
     } catch (err) {
       console.error(err);
@@ -40,17 +41,23 @@ export default function App() {
     }
   };
 
-  const handleSampleSelect = async (sampleName, isAnomaly) => {
+  const handleSampleSelect = async (sampleName, isAnomaly, machineOverride) => {
+    const machine = machineOverride || selectedMachine;
     setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
     try {
-      const result = await analyzePreset(sampleName, isAnomaly);
+      const result = await analyzePreset(sampleName, isAnomaly, machine);
       setAnalysisResult(result);
     } catch (err) {
       console.error(err);
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleMachineChange = (machineId) => {
+    setSelectedMachine(machineId);
+    handleSampleSelect('normal_id_00_00000000.wav', false, machineId);
   };
 
   return (
@@ -90,6 +97,8 @@ export default function App() {
             </div>
             <div className="card-body">
               <AudioUploader
+                selectedMachine={selectedMachine}
+                onMachineChange={handleMachineChange}
                 onFileSelected={handleFileSelect}
                 onSampleSelected={handleSampleSelect}
                 isAnalyzing={isAnalyzing}

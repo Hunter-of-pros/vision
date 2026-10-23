@@ -34,12 +34,13 @@ export async function fetchModelProfile() {
   }
 }
 
-export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false) {
+export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false, machineType = 'pump') {
   try {
     const sampleType = isAnomaly ? 'anomaly' : 'normal';
-    const res = await fetch(`${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}`, {
-      signal: AbortSignal.timeout(4000),
-    });
+    const res = await fetch(
+      `${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}&machine_type=${encodeURIComponent(machineType)}`,
+      { signal: AbortSignal.timeout(4000) }
+    );
     if (res.ok) {
       const data = await res.json();
       data.is_live = true; // Mark as real backend inference
@@ -49,15 +50,16 @@ export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav'
     console.warn('Backend unavailable, using fallback mock:', e.message);
   }
 
-  const mock = generateMockResult(sampleFilename, isAnomaly);
+  const mock = generateMockResult(sampleFilename, isAnomaly, machineType);
   mock.is_live = false;
   return mock;
 }
 
-export async function analyzeAudioFile(file, isMockAnomaly = false) {
+export async function analyzeAudioFile(file, isMockAnomaly = false, machineType = 'pump') {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('machine_type', machineType);
 
     const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
@@ -69,10 +71,10 @@ export async function analyzeAudioFile(file, isMockAnomaly = false) {
     console.warn('Backend unavailable, using fallback:', err.message);
   }
 
-  return generateMockResult(file.name, isMockAnomaly);
+  return generateMockResult(file.name, isMockAnomaly, machineType);
 }
 
-function generateMockResult(filename, isAnomaly) {
+function generateMockResult(filename, isAnomaly, machineType = 'pump') {
   const spectrogram = [];
   const n_mels = 64;
   const frames = 64;

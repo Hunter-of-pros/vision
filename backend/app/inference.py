@@ -137,6 +137,7 @@ class AnomalyDetector:
         spectrogram: np.ndarray,
         waveform: np.ndarray = None,
         filename: str = "",
+        machine_type: str = None,
     ) -> Dict[str, Any]:
         """
         Runs autoencoder reconstruction and computes dynamic statistical anomaly scores.
@@ -230,7 +231,10 @@ class AnomalyDetector:
         # -------------------------------------------------------------
         # DYNAMIC STATISTICAL THRESHOLDING (μ + 3σ) & 3-BAND PROFILING
         # -------------------------------------------------------------
-        m_type = detect_machine_type(filename, waveform)
+        if machine_type and machine_type.lower() in MACHINE_BASELINES:
+            m_type = machine_type.lower()
+        else:
+            m_type = detect_machine_type(filename, waveform)
         baseline = MACHINE_BASELINES.get(m_type, MACHINE_BASELINES["generic"])
         mu = baseline["mu"]
         sigma = baseline["sigma"]
