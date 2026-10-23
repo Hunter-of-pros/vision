@@ -35,43 +35,36 @@ export async function fetchModelProfile() {
 }
 
 export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false, machineType = 'pump') {
-  try {
-    const sampleType = isAnomaly ? 'anomaly' : 'normal';
-    const res = await fetch(
-      `${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}&machine_type=${encodeURIComponent(machineType)}`,
-      { signal: AbortSignal.timeout(4000) }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      data.is_live = true; // Mark as real backend inference
-      return data;
-    }
-  } catch (e) {
-    console.warn('Backend unavailable, using fallback mock:', e.message);
+  const sampleType = isAnomaly ? 'anomaly' : 'normal';
+  const res = await fetch(
+    `${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}&machine_type=${encodeURIComponent(machineType)}`,
+    { signal: AbortSignal.timeout(15000) }
+  );
+  if (!res.ok) {
+    throw new Error(`Real analysis failed: ${res.statusText}`);
   }
-
-  const mock = generateMockResult(sampleFilename, isAnomaly, machineType);
-  mock.is_live = false;
-  return mock;
+  const data = await res.json();
+  data.is_live = true;
+  return data;
 }
 
 export async function analyzeAudioFile(file, isMockAnomaly = false, machineType = 'pump') {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('machine_type', machineType);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('machine_type', machineType);
 
-    const res = await fetch(`${API_BASE}/analyze`, {
-      method: 'POST',
-      body: formData,
-    });
+  const res = await fetch(`${API_BASE}/analyze`, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(25000),
+  });
 
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.warn('Backend unavailable, using fallback:', err.message);
+  if (!res.ok) {
+    throw new Error(`Failed to process audio file: ${res.statusText}`);
   }
-
-  return generateMockResult(file.name, isMockAnomaly, machineType);
+  const data = await res.json();
+  data.is_live = true;
+  return data;
 }
 
 export async function fetchLLMAdvice({
@@ -83,128 +76,24 @@ export async function fetchLLMAdvice({
   frequencyBands = [],
   apiKey = null,
 }) {
-  try {
-    const res = await fetch(`${API_BASE}/llm-advice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        machine_type: machineType,
-        score,
-        threshold,
-        z_score: zScore,
-        primary_defect: primaryDefect,
-        frequency_bands: frequencyBands,
-        api_key: apiKey || undefined,
-      }),
-    });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.warn('LLM advice API failed, fallback active:', err);
-  }
+  const res = await fetch(`${API_BASE}/llm-advice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      machine_type: machineType,
+      score,
+      threshold,
+      z_score: zScore,
+      primary_defect: primaryDefect,
+      frequency_bands: frequencyBands,
+      api_key: apiKey || undefined,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
 
-  return {
-    status: 'success',
-    source: 'expert_rules',
-    model_used: 'Offline Industrial Diagnostics Rules',
-    advice: {
-      summary: `Acoustic anomaly detected on ${machineType.toUpperCase()} with reconstruction MSE of ${Number(score).toFixed(4)}.`,
-      root_causes: [
-        `Mechanical degradation and acoustic emission consistent with ${primaryDefect}.`,
-        'Lubricant breakdown, varnish build-up, or contamination.',
-        'Dynamic unbalance in rotational/pneumatic assembly.'
-      ],
-      possible_solutions: [
-        'Inspect mechanical mounts, bearings, and foundation anchors.',
-        'Verify operating pressures, temperatures, and lubrication levels.',
-        'Execute laser alignment and vibration inspection.'
-      ],
-      preventive_measures: [
-        'Implement continuous automated acoustic threshold monitoring.',
-        'Enforce scheduled preventive maintenance inspection intervals.',
-        'Calibrate baseline thresholds following every maintenance service.'
-      ]
-    }
-  };
+  if (!res.ok) {
+    throw new Error(`Gemini 3.5 Flash request failed (${res.status}): ${res.statusText}`);
+  }
+  return await res.json();
 }
 
-function generateMockResult(filename, isAnomaly, machineType = 'pump') {
-  const spectrogram = [];
-  const n_mels = 64;
-  const frames = 64;
-
-  for (let m = 0; m < n_mels; m++) {
-    const row = [];
-    for (let t = 0; t < frames; t++) {
-      const baseHarmonic = Math.sin((m / 8) * Math.PI) * Math.cos((t / 12) * Math.PI);
-      const noise = (Math.random() - 0.5) * 0.3;
-      const anomalySpike = isAnomaly && m > 30 && Math.random() > 0.5 ? 0.75 : 0;
-      const val = Math.max(-1, Math.min(1, baseHarmonic * 0.6 + noise + anomalySpike));
-      row.push(Number(val.toFixed(3)));
-    }
-    spectrogram.push(row);
-  }
-
-  const score = isAnomaly ? 0.0450 : 0.0121;
-  const dynThreshold = 0.0201;
-  const detected = score >= dynThreshold;
-
-  return {
-    filename: filename,
-    sample_rate: 16000,
-    duration_sec: 2.05,
-    score: score,
-    threshold: dynThreshold,
-    fixed_threshold: 0.020,
-    is_anomaly: detected,
-    status: detected ? 'ANOMALY' : 'NORMAL',
-    decision_mode: 'DYNAMIC_STATISTICAL',
-    dynamic_metrics: {
-      machine_type: 'PUMP',
-      machine_name: 'Industrial Pump (Centrifugal / Slurry)',
-      baseline_mean: 0.0135,
-      baseline_std: 0.0022,
-      k_sigma: 3.0,
-      z_score: isAnomaly ? 14.3 : -0.64,
-      confidence_pct: 99.9,
-      dynamic_threshold: dynThreshold,
-      fixed_threshold: 0.020,
-      ema_noise_baseline: 0.0134,
-      formula: 'μ (0.0135) + 3σ (0.0066) = 0.0201',
-    },
-    frequency_bands: [
-      {
-        id: 'low',
-        name: 'Low Band (0 - 1 kHz)',
-        diagnostic: 'Low Band: Hydraulic Imbalance & Shaft Vibration',
-        error: isAnomaly ? 0.028 : 0.014,
-        threshold: 0.024,
-        is_anomaly: isAnomaly,
-        ratio: isAnomaly ? 1.17 : 0.58,
-      },
-      {
-        id: 'mid',
-        name: 'Mid Band (1 - 4 kHz)',
-        diagnostic: 'Mid Band: Impeller Vane Pass & Seal Degradation',
-        error: isAnomaly ? 0.035 : 0.015,
-        threshold: 0.022,
-        is_anomaly: isAnomaly,
-        ratio: isAnomaly ? 1.59 : 0.68,
-      },
-      {
-        id: 'high',
-        name: 'High Band (4 - 8 kHz)',
-        diagnostic: 'High Band: Fluid Cavitation & Bearing Friction',
-        error: isAnomaly ? 0.052 : 0.009,
-        threshold: 0.020,
-        is_anomaly: isAnomaly,
-        ratio: isAnomaly ? 2.60 : 0.45,
-      },
-    ],
-    primary_defect_band: isAnomaly
-      ? 'High Band (4 - 8 kHz): Fluid Cavitation & Bearing Friction'
-      : 'Uniformly Nominal (All Frequency Bands Within 3-Sigma Limits)',
-    latency_ms: 11.4,
-    spectrogram: spectrogram,
-    reconstructed_spectrogram: spectrogram,
-  };
-}

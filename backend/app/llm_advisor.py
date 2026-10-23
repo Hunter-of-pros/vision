@@ -155,8 +155,9 @@ Provide an expert industrial diagnosis in JSON format with exactly the following
 
 IMPORTANT: Return ONLY raw, valid JSON. Do not wrap in markdown code blocks."""
 
-        # Try models starting with verified accessible models
-        candidate_models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
+        # Use Gemini 3.5 Flash as primary model
+        candidate_models = ["gemini-3.5-flash", "gemini-flash-latest"]
+        last_error = None
         for model_name in candidate_models:
             try:
                 response = client.models.generate_content(
@@ -177,7 +178,7 @@ IMPORTANT: Return ONLY raw, valid JSON. Do not wrap in markdown code blocks."""
                 return {
                     "status": "success",
                     "source": "gemini",
-                    "model_used": model_name,
+                    "model_used": "Gemini 3.5 Flash",
                     "advice": {
                         "summary": parsed.get("summary", ""),
                         "root_causes": parsed.get("root_causes", []),
@@ -186,7 +187,8 @@ IMPORTANT: Return ONLY raw, valid JSON. Do not wrap in markdown code blocks."""
                     }
                 }
             except Exception as e:
-                logger.warning(f"Gemini model {model_name} invocation failed: {e}")
+                logger.warning(f"Gemini model {model_name} invocation error: {e}")
+                last_error = str(e)
                 continue
 
     # Fallback to pre-calibrated domain expert rules

@@ -75,7 +75,7 @@ export default function LLMAdvisorCard({
       <div className="card-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
         <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Sparkles size={18} color="var(--accent-cyan)" />
-          Gemini Industrial AI Advisor
+          Gemini 3.5 Flash Industrial Advisor
         </h2>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -94,7 +94,7 @@ export default function LLMAdvisorCard({
             }}
           >
             <span className="pulse-dot" style={{ background: isGeminiLive ? 'var(--success)' : 'var(--accent-cyan)' }} />
-            {isGeminiLive ? `Gemini (${adviceData?.model_used})` : 'Industrial Rule Engine'}
+            {isGeminiLive ? adviceData?.model_used || 'Gemini 3.5 Flash' : 'Gemini 3.5 Flash'}
           </span>
 
           <button
