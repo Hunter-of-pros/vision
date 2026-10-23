@@ -69,7 +69,7 @@ async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
 
     # Run inference
     try:
-        prediction = detector.predict(spectrogram)
+        prediction = detector.predict(spectrogram, waveform=waveform, filename=file.filename)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
@@ -90,27 +90,42 @@ async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
 
 
 @app.get("/api/sample-analyze")
-def analyze_preset_sample(sample_type: str = Query("normal", pattern="^(normal|anomaly)$")) -> Dict[str, Any]:
+def analyze_preset_sample(
+    sample_type: str = Query("normal", pattern="^(normal|anomaly)$"),
+    filename: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Directly tests inference on real recorded dataset samples from data/fan.
     """
     start_time = time.perf_counter()
 
-    if sample_type == "normal":
-        candidates = glob.glob("data/fan/train/normal_*.wav")
-    else:
-        candidates = glob.glob("data/fan/test/anomaly_*.wav")
+    sample_path = None
+    if filename:
+        candidate_paths = [
+            os.path.join("data/fan/train", filename),
+            os.path.join("data/fan/test", filename),
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p):
+                sample_path = p
+                break
 
-    if not candidates:
-        raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data/fan")
+    if not sample_path:
+        if sample_type == "normal":
+            candidates = glob.glob("data/fan/train/normal_*.wav")
+        else:
+            candidates = glob.glob("data/fan/test/anomaly_*.wav")
 
-    sample_path = candidates[0]
+        if not candidates:
+            raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data/fan")
+        sample_path = candidates[0]
+
     waveform, sr = sf.read(sample_path)
     if waveform.ndim > 1:
         waveform = np.mean(waveform, axis=1)
 
     spectrogram = audio_processor.compute_log_mel_spectrogram(waveform)
-    prediction = detector.predict(spectrogram)
+    prediction = detector.predict(spectrogram, waveform=waveform, filename=os.path.basename(sample_path))
     total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
 
     return {

@@ -21,8 +21,8 @@ export default function App() {
       const profile = await fetchModelProfile();
       setProfileData(profile);
 
-      // Trigger an initial normal demonstration analysis
-      handleSampleSelect('conveyor_normal_01.wav', false);
+      // Trigger an initial normal demonstration analysis with real fan recording
+      handleSampleSelect('normal_id_00_00000000.wav', false);
     }
     init();
   }, []);
@@ -44,7 +44,7 @@ export default function App() {
     setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
     try {
-      const result = await analyzePreset(isAnomaly);
+      const result = await analyzePreset(sampleName, isAnomaly);
       setAnalysisResult(result);
     } catch (err) {
       console.error(err);

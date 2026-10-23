@@ -34,20 +34,24 @@ export async function fetchModelProfile() {
   }
 }
 
-export async function analyzePreset(isAnomaly = false) {
+export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false) {
   try {
     const sampleType = isAnomaly ? 'anomaly' : 'normal';
-    const res = await fetch(`${API_BASE}/sample-analyze?sample_type=${sampleType}`, {
+    const res = await fetch(`${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}`, {
       signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
-      return await res.json();
+      const data = await res.json();
+      data.is_live = true; // Mark as real backend inference
+      return data;
     }
   } catch (e) {
-    // Fall back to synthetic analysis if server not reachable
+    console.warn('Backend unavailable, using fallback mock:', e.message);
   }
 
-  return generateMockResult('fan_preset.wav', isAnomaly);
+  const mock = generateMockResult(sampleFilename, isAnomaly);
+  mock.is_live = false;
+  return mock;
 }
 
 export async function analyzeAudioFile(file, isMockAnomaly = false) {
@@ -86,8 +90,8 @@ function generateMockResult(filename, isAnomaly) {
   }
 
   const score = isAnomaly ? 0.0385 : 0.0121;
-  const threshold = 0.0229;
-  const detected = score > threshold;
+  const threshold = 0.020;
+  const detected = score >= threshold;
 
   return {
     filename: filename,

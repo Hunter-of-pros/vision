@@ -59,40 +59,40 @@ export default function AudioUploader({ onFileSelected, onSampleSelected, isAnal
 
       <div className="sample-selector">
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-          Or test with benchmark presets:
+          Test with real MIMII Fan recordings:
         </span>
         <div className="sample-buttons">
           <button
             type="button"
             className="btn-sample"
             disabled={isAnalyzing}
-            onClick={() => onSampleSelected('fan_normal_id00.wav', false)}
+            onClick={() => onSampleSelected('normal_id_00_00000000.wav', false)}
           >
-            <CheckCircle size={14} color="var(--success)" /> Normal Fan Sound
+            <CheckCircle size={14} color="var(--success)" /> Normal Fan (ID 00)
           </button>
           <button
             type="button"
             className="btn-sample"
             disabled={isAnalyzing}
-            onClick={() => onSampleSelected('pump_normal_id02.wav', false)}
+            onClick={() => onSampleSelected('normal_id_02_00000000.wav', false)}
           >
-            <CheckCircle size={14} color="var(--success)" /> Normal Pump
+            <CheckCircle size={14} color="var(--success)" /> Normal Fan (ID 02)
           </button>
           <button
             type="button"
             className="btn-sample"
             disabled={isAnalyzing}
-            onClick={() => onSampleSelected('bearing_damage_anomaly.wav', true)}
+            onClick={() => onSampleSelected('anomaly_id_00_00000000.wav', true)}
           >
-            <AlertTriangle size={14} color="var(--danger)" /> Damaged Bearing (Anomaly)
+            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Fan (ID 00)
           </button>
           <button
             type="button"
             className="btn-sample"
             disabled={isAnalyzing}
-            onClick={() => onSampleSelected('valve_leak_anomaly.wav', true)}
+            onClick={() => onSampleSelected('anomaly_id_02_00000000.wav', true)}
           >
-            <AlertTriangle size={14} color="var(--danger)" /> Valve Leak (Anomaly)
+            <AlertTriangle size={14} color="var(--danger)" /> Anomaly Fan (ID 02)
           </button>
         </div>
       </div>
