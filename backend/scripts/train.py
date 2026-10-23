@@ -286,12 +286,12 @@ def train_model(
                     f.write(line)
         print(f"📝 Updated ANOMALY_THRESHOLD={threshold} in backend/.env")
 
-    print("\n🎉 Model training on Fan dataset complete!")
+    print(f"\n🎉 Model training on {os.path.basename(data_dir.rstrip('/'))} dataset complete!")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train Acoustic Autoencoder on Fan Dataset")
-    parser.add_argument("--data", type=str, default="data/fan", help="Path to fan dataset directory")
+    parser = argparse.ArgumentParser(description="Train Acoustic Autoencoder on Industrial Dataset (Pump / Valve / Fan)")
+    parser.add_argument("--data", type=str, default="data/pump", help="Path to dataset directory (e.g., data/pump, data/valve, data/fan)")
     parser.add_argument("--epochs", type=int, default=25, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")

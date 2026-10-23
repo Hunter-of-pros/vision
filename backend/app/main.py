@@ -102,6 +102,8 @@ def analyze_preset_sample(
     sample_path = None
     if filename:
         candidate_paths = [
+            os.path.join("data/pump/train", filename),
+            os.path.join("data/pump/test", filename),
             os.path.join("data/valve/train", filename),
             os.path.join("data/valve/test", filename),
             os.path.join("data/fan/train", filename),
@@ -114,12 +116,20 @@ def analyze_preset_sample(
 
     if not sample_path:
         if sample_type == "normal":
-            candidates = glob.glob("data/valve/train/normal_*.wav") + glob.glob("data/fan/train/normal_*.wav")
+            candidates = (
+                glob.glob("data/pump/train/normal_*.wav")
+                + glob.glob("data/valve/train/normal_*.wav")
+                + glob.glob("data/fan/train/normal_*.wav")
+            )
         else:
-            candidates = glob.glob("data/valve/test/anomaly_*.wav") + glob.glob("data/fan/test/anomaly_*.wav")
+            candidates = (
+                glob.glob("data/pump/test/anomaly_*.wav")
+                + glob.glob("data/valve/test/anomaly_*.wav")
+                + glob.glob("data/fan/test/anomaly_*.wav")
+            )
 
         if not candidates:
-            raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data/valve or data/fan")
+            raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data directories")
         sample_path = candidates[0]
 
     waveform, sr = sf.read(sample_path)
