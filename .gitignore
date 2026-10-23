@@ -48,7 +48,8 @@ pnpm-debug.log*
 .idea/
 
 # Audio Data
-data/normal/*.wav
-data/anomaly/*.wav
+data/**/*.wav
+data/*.wav
+data/fan/
 !data/normal/.gitkeep
 !data/anomaly/.gitkeep
