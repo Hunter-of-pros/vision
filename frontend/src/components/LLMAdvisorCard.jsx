@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, AlertTriangle, Wrench, ShieldCheck, Key, RefreshCw, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, AlertTriangle, Wrench, ShieldCheck, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { fetchLLMAdvice } from '../services/api';
 
 export default function LLMAdvisorCard({
   machineType = 'pump',
   analysisResult = null,
 }) {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('vision_gemini_api_key') || '');
-  const [showKeyInput, setShowKeyInput] = useState(false);
   const [adviceData, setAdviceData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -19,16 +17,7 @@ export default function LLMAdvisorCard({
   const primaryDefect = analysisResult?.primary_defect_band || 'Uniformly Nominal';
   const bands = analysisResult?.frequency_bands || [];
 
-  const handleSaveKey = (val) => {
-    setApiKey(val);
-    if (val) {
-      localStorage.setItem('vision_gemini_api_key', val);
-    } else {
-      localStorage.removeItem('vision_gemini_api_key');
-    }
-  };
-
-  const loadAdvice = async (customKey = apiKey) => {
+  const loadAdvice = async () => {
     if (!analysisResult) return;
     setIsLoading(true);
     setErrorMsg(null);
@@ -41,14 +30,13 @@ export default function LLMAdvisorCard({
         isAnomaly,
         primaryDefect,
         frequencyBands: bands,
-        apiKey: customKey || undefined,
       });
       if (res && res.advice) {
         setAdviceData(res);
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to generate LLM advice. Please check your connection or API key.');
+      setErrorMsg('Failed to generate LLM advice. Please check backend connection.');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +45,7 @@ export default function LLMAdvisorCard({
   // Auto-fetch advice whenever a new analysisResult arrives
   useEffect(() => {
     if (analysisResult) {
-      loadAdvice(apiKey);
+      loadAdvice();
     } else {
       setAdviceData(null);
     }
@@ -100,20 +88,9 @@ export default function LLMAdvisorCard({
 
           <button
             type="button"
-            className="btn-key-toggle"
-            onClick={() => setShowKeyInput(!showKeyInput)}
-            title="Configure Gemini API Key"
-          >
-            <Key size={12} />
-            {apiKey ? 'API Key Set' : 'Add Gemini Key'}
-            {showKeyInput ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-
-          <button
-            type="button"
             className="btn-refresh-llm"
             disabled={isLoading}
-            onClick={() => loadAdvice(apiKey)}
+            onClick={() => loadAdvice()}
             title="Re-run Gemini Analysis"
           >
             <RefreshCw size={13} className={isLoading ? 'spin-icon' : ''} />
@@ -121,37 +98,6 @@ export default function LLMAdvisorCard({
           </button>
         </div>
       </div>
-
-      {/* Optional Gemini API Key Drawer */}
-      {showKeyInput && (
-        <div className="api-key-drawer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#fff', marginBottom: '6px' }}>
-            <Key size={14} color="var(--accent-cyan)" />
-            Custom Gemini API Key (Optional)
-          </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-            Enter your Google Gemini API key to query Gemini 3.5 Flash live. If left blank, the backend environment key or built-in industrial engineering engine is utilized.
-          </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="password"
-              placeholder="AIzaSy..."
-              className="api-key-input"
-              value={apiKey}
-              onChange={(e) => handleSaveKey(e.target.value)}
-            />
-            {apiKey && (
-              <button
-                type="button"
-                className="btn-clear-key"
-                onClick={() => handleSaveKey('')}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Summary Banner */}
       {advice?.summary && (
