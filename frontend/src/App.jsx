@@ -4,6 +4,7 @@ import AudioUploader from './components/AudioUploader';
 import Spectrogram from './components/Spectrogram';
 import AnomalyGauge from './components/AnomalyGauge';
 import MetricsCard from './components/MetricsCard';
+import LLMAdvisorCard from './components/LLMAdvisorCard';
 import { analyzeAudioFile, analyzePreset, fetchModelProfile, checkBackendHealth } from './services/api';
 
 export default function App() {
@@ -180,6 +181,14 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* Gemini LLM Anomaly Diagnostics & Maintenance Advisory */}
+      {analysisResult && (
+        <LLMAdvisorCard
+          machineType={selectedMachine}
+          analysisResult={analysisResult}
+        />
+      )}
 
       {/* Edge Performance & Profiler Section */}
       <section className="glass-panel">

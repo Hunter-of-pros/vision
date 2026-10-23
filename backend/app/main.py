@@ -6,15 +6,20 @@ Provides REST endpoints for audio ingestion, inference, and model profiling.
 import os
 import glob
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from dotenv import load_dotenv
 import soundfile as sf
 import numpy as np
+
+load_dotenv()
 
 from app.audio import AudioProcessor
 from app.inference import AnomalyDetector
 from app.profiler import ModelProfiler
+from app.llm_advisor import generate_anomaly_advice
 
 app = FastAPI(
     title="Vision - Industrial Acoustic Anomaly Detection API",
@@ -187,6 +192,33 @@ def analyze_preset_sample(
         "spectrogram": spectrogram.tolist(),
         "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
     }
+
+
+class LLMAdviceRequest(BaseModel):
+    machine_type: str = "pump"
+    score: float = 0.02
+    threshold: float = 0.0201
+    z_score: float = 0.0
+    primary_defect: str = "Uniformly Nominal"
+    frequency_bands: Optional[List[Dict[str, Any]]] = None
+    api_key: Optional[str] = None
+
+
+@app.post("/api/llm-advice")
+def get_llm_anomaly_advice(req: LLMAdviceRequest) -> Dict[str, Any]:
+    """
+    Invokes Gemini LLM to generate root causes, solutions, and preventive measures
+    for detected machine acoustic anomalies.
+    """
+    return generate_anomaly_advice(
+        machine_type=req.machine_type,
+        score=req.score,
+        threshold=req.threshold,
+        z_score=req.z_score,
+        primary_defect=req.primary_defect,
+        frequency_bands=req.frequency_bands or [],
+        api_key_override=req.api_key,
+    )
 
 
 if __name__ == "__main__":

@@ -74,6 +74,59 @@ export async function analyzeAudioFile(file, isMockAnomaly = false, machineType 
   return generateMockResult(file.name, isMockAnomaly, machineType);
 }
 
+export async function fetchLLMAdvice({
+  machineType = 'pump',
+  score = 0.02,
+  threshold = 0.0201,
+  zScore = 0,
+  primaryDefect = 'Uniformly Nominal',
+  frequencyBands = [],
+  apiKey = null,
+}) {
+  try {
+    const res = await fetch(`${API_BASE}/llm-advice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        machine_type: machineType,
+        score,
+        threshold,
+        z_score: zScore,
+        primary_defect: primaryDefect,
+        frequency_bands: frequencyBands,
+        api_key: apiKey || undefined,
+      }),
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('LLM advice API failed, fallback active:', err);
+  }
+
+  return {
+    status: 'success',
+    source: 'expert_rules',
+    model_used: 'Offline Industrial Diagnostics Rules',
+    advice: {
+      summary: `Acoustic anomaly detected on ${machineType.toUpperCase()} with reconstruction MSE of ${Number(score).toFixed(4)}.`,
+      root_causes: [
+        `Mechanical degradation and acoustic emission consistent with ${primaryDefect}.`,
+        'Lubricant breakdown, varnish build-up, or contamination.',
+        'Dynamic unbalance in rotational/pneumatic assembly.'
+      ],
+      possible_solutions: [
+        'Inspect mechanical mounts, bearings, and foundation anchors.',
+        'Verify operating pressures, temperatures, and lubrication levels.',
+        'Execute laser alignment and vibration inspection.'
+      ],
+      preventive_measures: [
+        'Implement continuous automated acoustic threshold monitoring.',
+        'Enforce scheduled preventive maintenance inspection intervals.',
+        'Calibrate baseline thresholds following every maintenance service.'
+      ]
+    }
+  };
+}
+
 function generateMockResult(filename, isAnomaly, machineType = 'pump') {
   const spectrogram = [];
   const n_mels = 64;
