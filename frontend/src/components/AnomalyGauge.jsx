@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
-import { AlertOctagon, CheckCircle2, Sliders, Activity, Info, BarChart2, ShieldAlert } from 'lucide-react';
+import React from 'react';
+import { AlertOctagon, CheckCircle2, BarChart2, ShieldAlert } from 'lucide-react';
 
 export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly = false, analysisResult = null }) {
-  const [thresholdMode, setThresholdMode] = useState('dynamic'); // 'dynamic' | 'fixed'
-
   const dynMetrics = analysisResult?.dynamic_metrics || null;
   const bands = analysisResult?.frequency_bands || [];
   const primaryDefect = analysisResult?.primary_defect_band || 'Uniformly Nominal';
 
-  const fixedThreshold = analysisResult?.fixed_threshold || 0.020;
   const dynamicThreshold = dynMetrics?.dynamic_threshold || threshold || 0.0201;
-
-  const activeThreshold = thresholdMode === 'dynamic' ? dynamicThreshold : fixedThreshold;
+  const activeThreshold = dynamicThreshold;
   const activeIsAnomaly = score >= activeThreshold;
 
   // Meter percentage (0 to 0.20 range)
@@ -36,28 +32,6 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
         )}
       </div>
 
-      {/* Mode Selector Toggle: Dynamic (mu + 3sigma) vs Fixed */}
-      <div className="dynamic-mode-toggle">
-        <button
-          type="button"
-          className={`toggle-btn ${thresholdMode === 'dynamic' ? 'active' : ''}`}
-          onClick={() => setThresholdMode('dynamic')}
-          title="Self-calibrating threshold: baseline mean + 3 standard deviations per machine asset"
-        >
-          <Sliders size={13} />
-          Dynamic Statistical (μ + 3σ)
-        </button>
-        <button
-          type="button"
-          className={`toggle-btn ${thresholdMode === 'fixed' ? 'active' : ''}`}
-          onClick={() => setThresholdMode('fixed')}
-          title="Legacy static threshold (0.0200)"
-        >
-          <Activity size={13} />
-          Fixed Scalar (0.020)
-        </button>
-      </div>
-
       {/* Numerical Score Indicator */}
       <div style={{ margin: '14px 0 16px 0' }}>
         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -77,10 +51,10 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
         </div>
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <span>
-            {thresholdMode === 'dynamic' ? 'Adaptive Threshold (μ + 3σ):' : 'Fixed Threshold:'}{' '}
+            Adaptive Threshold (μ + 3σ):{' '}
             <strong style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{activeThreshold.toFixed(4)}</strong>
           </span>
-          {thresholdMode === 'dynamic' && dynMetrics?.machine_type && (
+          {dynMetrics?.machine_type && (
             <span style={{ fontSize: '10px', background: 'rgba(56,189,248,0.15)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
               {dynMetrics.machine_type}
             </span>

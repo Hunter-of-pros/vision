@@ -6,7 +6,6 @@ const MACHINE_OPTIONS = [
     id: 'pump',
     name: 'Pump',
     icon: '🚰',
-    freqFocus: 'High: Cavitation · Low: Shaft Imbalance',
     thresholdText: 'τ = 0.0201',
     samples: [
       { label: 'Normal Pump (ID 00)', file: 'normal_id_00_00000000.wav', isAnomaly: false },
@@ -19,7 +18,6 @@ const MACHINE_OPTIONS = [
     id: 'valve',
     name: 'Valve',
     icon: '⚙️',
-    freqFocus: 'High: Air Leak · Mid: Spool Stiction',
     thresholdText: 'τ = 0.0155',
     samples: [
       { label: 'Normal Valve (ID 00)', file: 'normal_id_00_00000000.wav', isAnomaly: false },
@@ -32,7 +30,6 @@ const MACHINE_OPTIONS = [
     id: 'fan',
     name: 'Fan',
     icon: '🌀',
-    freqFocus: 'Low: Rotor Imbalance · High: Friction',
     thresholdText: 'τ = 0.0179',
     samples: [
       { label: 'Normal Fan (ID 00)', file: 'normal_id_00_00000000.wav', isAnomaly: false },
@@ -117,7 +114,6 @@ export default function AudioUploader({
                   </span>
                   <span className="machine-card-badge">{m.thresholdText}</span>
                 </div>
-                <div className="machine-card-freq">{m.freqFocus}</div>
               </button>
             );
           })}
