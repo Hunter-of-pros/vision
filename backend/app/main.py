@@ -199,6 +199,7 @@ class LLMAdviceRequest(BaseModel):
     score: float = 0.02
     threshold: float = 0.0201
     z_score: float = 0.0
+    is_anomaly: Optional[bool] = None
     primary_defect: str = "Uniformly Nominal"
     frequency_bands: Optional[List[Dict[str, Any]]] = None
     api_key: Optional[str] = None
@@ -218,6 +219,7 @@ def get_llm_anomaly_advice(req: LLMAdviceRequest) -> Dict[str, Any]:
         primary_defect=req.primary_defect,
         frequency_bands=req.frequency_bands or [],
         api_key_override=req.api_key,
+        is_anomaly=req.is_anomaly,
     )
 
 

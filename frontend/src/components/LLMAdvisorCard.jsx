@@ -38,6 +38,7 @@ export default function LLMAdvisorCard({
         score,
         threshold,
         zScore,
+        isAnomaly,
         primaryDefect,
         frequencyBands: bands,
         apiKey: customKey || undefined,
@@ -129,7 +130,7 @@ export default function LLMAdvisorCard({
             Custom Gemini API Key (Optional)
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-            Enter your Google Gemini API key to query Gemini 3.8 Flash live. If left blank, the backend environment key or built-in industrial engineering engine is utilized.
+            Enter your Google Gemini API key to query Gemini 3.5 Flash live. If left blank, the backend environment key or built-in industrial engineering engine is utilized.
           </p>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
@@ -155,14 +156,21 @@ export default function LLMAdvisorCard({
       {/* Summary Banner */}
       {advice?.summary && (
         <div className={`llm-summary-banner ${isAnomaly ? 'anomaly' : 'normal'}`}>
-          <div style={{ fontSize: '13px', lineHeight: 1.5, color: '#f1f5f9' }}>
-            <strong>Executive AI Diagnosis:</strong> {advice.summary}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', lineHeight: 1.5, color: '#f1f5f9' }}>
+            {isAnomaly ? (
+              <AlertTriangle size={17} color="var(--danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            ) : (
+              <CheckCircle2 size={17} color="var(--success)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            )}
+            <div>
+              <strong>Executive AI Diagnosis:</strong> {advice.summary}
+            </div>
           </div>
         </div>
       )}
 
-      {/* 3 Core Output Pillars */}
-      {advice && (
+      {/* Anomaly Analysis: ONLY shown when anomaly is present */}
+      {isAnomaly && advice && (advice.root_causes?.length > 0 || advice.possible_solutions?.length > 0 || advice.preventive_measures?.length > 0) && (
         <div className="llm-advice-grid">
           {/* 1. Root Causes */}
           <div className="advice-pillar pillar-causes">
@@ -213,6 +221,37 @@ export default function LLMAdvisorCard({
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Normal Operating State Reassurance: Rendered when data is nominal */}
+      {!isAnomaly && advice && (
+        <div className="nominal-status-panel">
+          <div className="nominal-status-header">
+            <CheckCircle2 size={16} color="var(--success)" />
+            <span>Operational Status: Healthy &amp; Nominal</span>
+          </div>
+          <p className="nominal-status-desc">
+            All acoustic reconstruction residuals and frequency bands remain well below adaptive threshold limits. No anomalous mechanical vibration, bearing friction, or fluid defects detected. Asset is operating optimally.
+          </p>
+          <div className="nominal-metrics-row">
+            <div className="nominal-metric-chip">
+              <span className="chip-label">Acoustic Residual</span>
+              <span className="chip-val chip-success">{Number(score).toFixed(4)} MSE</span>
+            </div>
+            <div className="nominal-metric-chip">
+              <span className="chip-label">Adaptive Limit</span>
+              <span className="chip-val">{Number(threshold).toFixed(4)}</span>
+            </div>
+            <div className="nominal-metric-chip">
+              <span className="chip-label">Statistical Deviation</span>
+              <span className="chip-val chip-success">{Number(zScore) > 0 ? `+${Number(zScore).toFixed(2)}σ` : `${Number(zScore).toFixed(2)}σ`}</span>
+            </div>
+            <div className="nominal-metric-chip">
+              <span className="chip-label">Maintenance Directive</span>
+              <span className="chip-val chip-success">Cleared for Normal Operation</span>
+            </div>
           </div>
         </div>
       )}
