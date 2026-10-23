@@ -3,11 +3,14 @@ FastAPI Backend Server for Industrial Acoustic Anomaly Detection.
 Provides REST endpoints for audio ingestion, inference, and model profiling.
 """
 
+import os
+import glob
 import time
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from typing import Dict, Any, Optional
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Any
+import soundfile as sf
+import numpy as np
 
 from app.audio import AudioProcessor
 from app.inference import AnomalyDetector
@@ -15,14 +18,14 @@ from app.profiler import ModelProfiler
 
 app = FastAPI(
     title="Vision - Industrial Acoustic Anomaly Detection API",
-    description="Backend microservice serving Librosa feature extraction, TFLite INT8 inference, and edge profiling.",
+    description="Backend microservice serving Librosa feature extraction, Autoencoder inference, and edge profiling.",
     version="1.0.0",
 )
 
 # Enable CORS for React + Vite dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust to http://localhost:5173 for stricter environments
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,8 +33,8 @@ app.add_middleware(
 
 # Initialize singletons
 audio_processor = AudioProcessor(sample_rate=16000, n_mels=64, target_frames=64)
-detector = AnomalyDetector(model_path="models/autoencoder.tflite")
-profiler = ModelProfiler(model_path="models/autoencoder.tflite")
+detector = AnomalyDetector()
+profiler = ModelProfiler()
 
 
 @app.get("/api/health")
@@ -86,6 +89,44 @@ async def analyze_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
     }
 
 
+@app.get("/api/sample-analyze")
+def analyze_preset_sample(sample_type: str = Query("normal", pattern="^(normal|anomaly)$")) -> Dict[str, Any]:
+    """
+    Directly tests inference on real recorded dataset samples from data/fan.
+    """
+    start_time = time.perf_counter()
+
+    if sample_type == "normal":
+        candidates = glob.glob("data/fan/train/normal_*.wav")
+    else:
+        candidates = glob.glob("data/fan/test/anomaly_*.wav")
+
+    if not candidates:
+        raise HTTPException(status_code=404, detail=f"No {sample_type} audio clips found in data/fan")
+
+    sample_path = candidates[0]
+    waveform, sr = sf.read(sample_path)
+    if waveform.ndim > 1:
+        waveform = np.mean(waveform, axis=1)
+
+    spectrogram = audio_processor.compute_log_mel_spectrogram(waveform)
+    prediction = detector.predict(spectrogram)
+    total_latency_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
+
+    return {
+        "filename": os.path.basename(sample_path),
+        "sample_rate": sr,
+        "duration_sec": round(len(waveform) / sr, 2),
+        "score": prediction["score"],
+        "threshold": prediction["threshold"],
+        "is_anomaly": prediction["is_anomaly"],
+        "status": prediction["status"],
+        "latency_ms": total_latency_ms,
+        "spectrogram": spectrogram.tolist(),
+        "reconstructed_spectrogram": prediction["reconstructed_spectrogram"],
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

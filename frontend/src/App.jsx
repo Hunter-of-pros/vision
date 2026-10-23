@@ -4,7 +4,7 @@ import AudioUploader from './components/AudioUploader';
 import Spectrogram from './components/Spectrogram';
 import AnomalyGauge from './components/AnomalyGauge';
 import MetricsCard from './components/MetricsCard';
-import { analyzeAudioFile, fetchModelProfile, checkBackendHealth } from './services/api';
+import { analyzeAudioFile, analyzePreset, fetchModelProfile, checkBackendHealth } from './services/api';
 
 export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -41,14 +41,10 @@ export default function App() {
   };
 
   const handleSampleSelect = async (sampleName, isAnomaly) => {
-    // Create a mock File object for the sample
-    const mockBlob = new Blob(['RIFF....WAVEfmt '], { type: 'audio/wav' });
-    const mockFile = new File([mockBlob], sampleName, { type: 'audio/wav' });
-
-    setSelectedFile(mockFile);
+    setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
     try {
-      const result = await analyzeAudioFile(mockFile, isAnomaly);
+      const result = await analyzePreset(isAnomaly);
       setAnalysisResult(result);
     } catch (err) {
       console.error(err);
