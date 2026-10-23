@@ -1,5 +1,45 @@
-import React from 'react';
-import { AlertOctagon, CheckCircle2, BarChart2, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { AlertOctagon, CheckCircle2, BarChart2, ShieldAlert, Volume2 } from 'lucide-react';
+
+/**
+ * Generates an industrial double-beep acoustic alarm using the Web Audio API.
+ * Pulse 1: 880 Hz (A5), Pulse 2: 1100 Hz (C#6)
+ */
+export function playAnomalyAlertBeep() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    const now = ctx.currentTime;
+
+    const playPulse = (freq, startOffset, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle'; // Crisp industrial buzzer harmonics
+      osc.frequency.setValueAtTime(freq, now + startOffset);
+
+      gain.gain.setValueAtTime(0.0001, now + startOffset);
+      gain.gain.linearRampToValueAtTime(0.28, now + startOffset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + startOffset);
+      osc.stop(now + startOffset + duration);
+    };
+
+    playPulse(880, 0.0, 0.13);       // Beep 1
+    playPulse(1100, 0.18, 0.22);     // Beep 2 (higher urgent alert)
+  } catch (err) {
+    console.warn('Anomaly audio alert failed:', err);
+  }
+}
 
 export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly = false, analysisResult = null }) {
   const dynMetrics = analysisResult?.dynamic_metrics || null;
@@ -9,6 +49,19 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
   const dynamicThreshold = dynMetrics?.dynamic_threshold || threshold || 0.0201;
   const activeThreshold = dynamicThreshold;
   const activeIsAnomaly = score >= activeThreshold;
+
+  const lastAlertKeyRef = useRef(null);
+
+  // Automatically trigger beep sound whenever an anomaly crosses threshold
+  useEffect(() => {
+    if (analysisResult && activeIsAnomaly) {
+      const alertKey = `${analysisResult.filename || 'sample'}_${analysisResult.score}`;
+      if (lastAlertKeyRef.current !== alertKey) {
+        lastAlertKeyRef.current = alertKey;
+        playAnomalyAlertBeep();
+      }
+    }
+  }, [analysisResult, activeIsAnomaly]);
 
   // Meter percentage (0 to 0.20 range)
   const maxScale = 0.20;
@@ -22,8 +75,13 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
       {/* Top Status Pill */}
       <div style={{ marginBottom: '16px' }}>
         {activeIsAnomaly ? (
-          <div className="status-pill status-anomaly">
-            <AlertOctagon size={16} /> Anomaly Detected
+          <div
+            className="status-pill status-anomaly"
+            onClick={playAnomalyAlertBeep}
+            style={{ cursor: 'pointer' }}
+            title="Alarm beep sounded · Click to replay"
+          >
+            <AlertOctagon size={16} /> Anomaly Detected <Volume2 size={14} style={{ marginLeft: '4px', opacity: 0.9 }} />
           </div>
         ) : (
           <div className="status-pill status-normal">
