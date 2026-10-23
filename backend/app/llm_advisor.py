@@ -86,6 +86,11 @@ FALLBACK_ADVISORY = {
 
 def get_gemini_client(api_key: Optional[str] = None):
     """Initializes and returns the Google GenAI client if an API key is available."""
+    # Ensure backend/.env or .env is refreshed
+    for p in ["backend/.env", ".env"]:
+        if os.path.exists(p):
+            load_dotenv(p, override=True)
+
     resolved_key = (
         api_key
         or os.getenv("GEMINI_API_KEY")
@@ -150,8 +155,8 @@ Provide an expert industrial diagnosis in JSON format with exactly the following
 
 IMPORTANT: Return ONLY raw, valid JSON. Do not wrap in markdown code blocks."""
 
-        # Try current models with fallback
-        candidate_models = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash"]
+        # Try models starting with verified accessible models
+        candidate_models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
         for model_name in candidate_models:
             try:
                 response = client.models.generate_content(
