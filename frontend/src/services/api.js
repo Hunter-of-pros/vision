@@ -3,7 +3,7 @@
  * Includes graceful mock fallback for immediate testing without backend running.
  */
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env?.VITE_API_BASE_URL || '/api';
 
 export async function checkBackendHealth() {
   try {
