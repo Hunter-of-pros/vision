@@ -1,6 +1,7 @@
 /**
  * API service for communicating with FastAPI backend.
- * Includes fallback for demo/offline mode.
+ * Includes support for audio analysis, machine asset tracking, anomaly reassignment,
+ * and predictive maintenance prognostics.
  */
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || '/api';
@@ -34,10 +35,19 @@ export async function fetchModelProfile() {
   }
 }
 
-export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false, machineType = 'pump') {
+export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav', isAnomaly = false, machineType = 'pump', machineId = 'p001') {
   const sampleType = isAnomaly ? 'anomaly' : 'normal';
+  const query = new URLSearchParams({
+    sample_type: sampleType,
+    filename: sampleFilename,
+    machine_type: machineType,
+  });
+  if (machineId) {
+    query.set('machine_id', machineId);
+  }
+
   const res = await fetch(
-    `${API_BASE}/sample-analyze?sample_type=${sampleType}&filename=${encodeURIComponent(sampleFilename)}&machine_type=${encodeURIComponent(machineType)}`,
+    `${API_BASE}/sample-analyze?${query.toString()}`,
     { signal: AbortSignal.timeout(15000) }
   );
   if (!res.ok) {
@@ -48,10 +58,13 @@ export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav'
   return data;
 }
 
-export async function analyzeAudioFile(file, isMockAnomaly = false, machineType = 'pump') {
+export async function analyzeAudioFile(file, isMockAnomaly = false, machineType = 'pump', machineId = 'p001') {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('machine_type', machineType);
+  if (machineId) {
+    formData.append('machine_id', machineId);
+  }
 
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
@@ -65,6 +78,66 @@ export async function analyzeAudioFile(file, isMockAnomaly = false, machineType 
   const data = await res.json();
   data.is_live = true;
   return data;
+}
+
+export async function fetchRegisteredMachines(machineType = null) {
+  try {
+    const url = machineType ? `${API_BASE}/machines?machine_type=${encodeURIComponent(machineType)}` : `${API_BASE}/machines`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.machines || [];
+  } catch (err) {
+    console.warn('Failed to fetch registered machines:', err);
+    return [];
+  }
+}
+
+export async function fetchMachinePrognostics(machineId) {
+  if (!machineId) return null;
+  try {
+    const res = await fetch(`${API_BASE}/machines/${encodeURIComponent(machineId)}/prognostics`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('Failed to fetch prognostics');
+    return await res.json();
+  } catch (err) {
+    console.warn(`Failed to fetch prognostics for ${machineId}:`, err);
+    return null;
+  }
+}
+
+export async function fetchMachineHistory(machineId) {
+  if (!machineId) return [];
+  try {
+    const res = await fetch(`${API_BASE}/machines/${encodeURIComponent(machineId)}/history`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('Failed to fetch history');
+    const data = await res.json();
+    return data.history || [];
+  } catch (err) {
+    console.warn(`Failed to fetch history for ${machineId}:`, err);
+    return [];
+  }
+}
+
+export async function reassignAnomalyRecord({ recordId, machineId, machineType = 'pump', notes = '' }) {
+  const res = await fetch(`${API_BASE}/machines/reassign-anomaly`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      record_id: recordId,
+      machine_id: machineId,
+      machine_type: machineType,
+      notes,
+    }),
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!res.ok) {
+    throw new Error(`Reassignment failed: ${res.statusText}`);
+  }
+  return await res.json();
 }
 
 export async function fetchLLMAdvice({
@@ -94,8 +167,7 @@ export async function fetchLLMAdvice({
   });
 
   if (!res.ok) {
-    throw new Error(`Gemini 3.5 Flash request failed (${res.status}): ${res.statusText}`);
+    throw new Error(`Gemini request failed (${res.status}): ${res.statusText}`);
   }
   return await res.json();
 }
-

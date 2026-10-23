@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, AlertTriangle, CheckCircle, Cpu, Radio } from 'lucide-react';
+import MachineAssetSelector from './MachineAssetSelector';
 
 const MACHINE_OPTIONS = [
   {
@@ -45,6 +46,9 @@ export default function AudioUploader({
   onSampleSelected,
   selectedMachine = 'pump',
   onMachineChange,
+  selectedMachineId = 'p001',
+  onMachineIdChange,
+  refreshTrigger = 0,
   isAnalyzing,
   selectedFileName,
 }) {
@@ -55,7 +59,7 @@ export default function AudioUploader({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [selectedMachine]);
+  }, [selectedMachine, selectedMachineId]);
 
   const activeMachine = MACHINE_OPTIONS.find((m) => m.id === selectedMachine) || MACHINE_OPTIONS[0];
 
@@ -86,45 +90,20 @@ export default function AudioUploader({
 
   return (
     <div>
-      {/* Step 1: Machine Selector */}
-      <div className="machine-selector-section">
-        <div className="machine-selector-header">
-          <span className="machine-selector-title">
-            <Radio size={14} color="var(--accent-cyan)" />
-            Step 1 · Choose Machine Asset
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Frequency profile auto-adapts
-          </span>
-        </div>
+      {/* Step 1 & 1B: Machine Asset Type & Machine ID Selection */}
+      <MachineAssetSelector
+        selectedMachineType={selectedMachine}
+        onMachineTypeChange={onMachineChange}
+        selectedMachineId={selectedMachineId}
+        onMachineIdChange={onMachineIdChange}
+        refreshTrigger={refreshTrigger}
+      />
 
-        <div className="machine-cards-grid">
-          {MACHINE_OPTIONS.map((m) => {
-            const isSelected = m.id === selectedMachine;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                className={`machine-select-card ${isSelected ? 'active' : ''}`}
-                onClick={() => onMachineChange && onMachineChange(m.id)}
-              >
-                <div className="machine-card-top">
-                  <span className="machine-card-name">
-                    <span>{m.icon}</span> {m.name}
-                  </span>
-                  <span className="machine-card-badge">{m.thresholdText}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Step 2: Upload Option */}
-      <div style={{ marginBottom: '16px' }}>
+      {/* Step 2: Upload Audio Clip */}
+      <div style={{ marginTop: '20px', marginBottom: '16px' }}>
         <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Upload size={13} color="var(--accent-purple)" />
-          Step 2 · Upload {activeMachine.name} Audio Clip
+          Step 2 · Audio Inspection for {activeMachine.name} Asset ({selectedMachineId})
         </div>
 
         <div
@@ -145,10 +124,10 @@ export default function AudioUploader({
             <Upload size={24} />
           </div>
           <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>
-            {selectedFileName ? selectedFileName : `Drop ${activeMachine.name} audio clip (.wav) here`}
+            {selectedFileName ? selectedFileName : `Drop audio clip (.wav) for ${selectedMachineId} here`}
           </h4>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            Analyzes 64-band Log-Mel frequencies against calibrated {activeMachine.name} baseline ({activeMachine.thresholdText})
+            Analyzes Log-Mel reconstruction error against calibrated {activeMachine.name} threshold ({activeMachine.thresholdText})
           </p>
         </div>
       </div>

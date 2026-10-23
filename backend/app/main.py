@@ -20,7 +20,15 @@ from app.audio import AudioProcessor
 from app.inference import AnomalyDetector
 from app.profiler import ModelProfiler
 from app.llm_advisor import generate_anomaly_advice
-from app.db import record_detection_event, get_recent_detections, get_mongo_collection
+from app.db import (
+    record_detection_event,
+    get_recent_detections,
+    get_mongo_collection,
+    get_registered_machines,
+    get_machine_anomaly_history,
+    analyze_machine_prognostics,
+    update_detection_record,
+)
 
 app = FastAPI(
     title="Vision - Industrial Acoustic Anomaly Detection API",
@@ -92,6 +100,7 @@ async def analyze_audio(
         is_anomaly=prediction["is_anomaly"],
         machine_id=machine_id,
         filename=file.filename,
+        defect_band=prediction.get("primary_defect_band", "Mid-Frequency"),
     )
 
     return {
@@ -203,6 +212,7 @@ def analyze_preset_sample(
         is_anomaly=prediction["is_anomaly"],
         machine_id=machine_id,
         filename=os.path.basename(sample_path),
+        defect_band=prediction.get("primary_defect_band", "Mid-Frequency"),
     )
 
     return {
@@ -275,6 +285,63 @@ def get_detections_stats() -> Dict[str, Any]:
         }
     except Exception as e:
         return {"status": "error", "message": str(e), "total": 0}
+
+
+class ReassignAnomalyRequest(BaseModel):
+    record_id: str
+    machine_id: str
+    machine_type: Optional[str] = "pump"
+    notes: Optional[str] = ""
+
+
+@app.get("/api/machines")
+def list_machines(machine_type: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """
+    Returns all registered machines with inspection & anomaly counts and current health status.
+    """
+    machines = get_registered_machines(machine_type=machine_type)
+    return {"count": len(machines), "machines": machines}
+
+
+@app.get("/api/machines/{machine_id}/history")
+def get_machine_history(machine_id: str) -> Dict[str, Any]:
+    """
+    Retrieves chronological inspection & anomaly test history for a specific machine ID.
+    """
+    history = get_machine_anomaly_history(machine_id=machine_id)
+    return {"machineId": machine_id, "count": len(history), "history": history}
+
+
+@app.get("/api/machines/{machine_id}/prognostics")
+def get_machine_prognostics(machine_id: str) -> Dict[str, Any]:
+    """
+    Analyses the pattern, frequency of occurrence, and cause of faults
+    for a particular individual machine, and predicts what will probably occur.
+    """
+    return analyze_machine_prognostics(machine_id=machine_id)
+
+
+@app.post("/api/machines/reassign-anomaly")
+def reassign_anomaly(req: ReassignAnomalyRequest) -> Dict[str, Any]:
+    """
+    Updates or re-assigns an anomaly detection record to an existing or new machine ID,
+    and returns updated prognostic analysis.
+    """
+    updated = update_detection_record(
+        record_id=req.record_id,
+        machine_id=req.machine_id,
+        machine_type=req.machine_type,
+        notes=req.notes,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Detection record not found or update failed")
+
+    prognostics = analyze_machine_prognostics(machine_id=req.machine_id)
+    return {
+        "status": "success",
+        "record": updated,
+        "prognostics": prognostics,
+    }
 
 
 class LLMAdviceRequest(BaseModel):

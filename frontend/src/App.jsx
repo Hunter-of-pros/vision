@@ -5,15 +5,19 @@ import Spectrogram from './components/Spectrogram';
 import AnomalyGauge from './components/AnomalyGauge';
 import MetricsCard from './components/MetricsCard';
 import LLMAdvisorCard from './components/LLMAdvisorCard';
+import AnomalyActionMenu from './components/AnomalyActionMenu';
+import MachinePrognosticsCard from './components/MachinePrognosticsCard';
 import { analyzeAudioFile, analyzePreset, fetchModelProfile, checkBackendHealth } from './services/api';
 
 export default function App() {
   const [selectedMachine, setSelectedMachine] = useState('pump');
+  const [selectedMachineId, setSelectedMachineId] = useState('p001');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Load initial model profile and check backend status
   useEffect(() => {
@@ -30,8 +34,9 @@ export default function App() {
     setSelectedFile(file);
     setIsAnalyzing(true);
     try {
-      const result = await analyzeAudioFile(file, false, selectedMachine);
+      const result = await analyzeAudioFile(file, false, selectedMachine, selectedMachineId);
       setAnalysisResult(result);
+      setRefreshTrigger((prev) => prev + 1);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,8 +49,9 @@ export default function App() {
     setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
     try {
-      const result = await analyzePreset(sampleName, isAnomaly, machine);
+      const result = await analyzePreset(sampleName, isAnomaly, machine, selectedMachineId);
       setAnalysisResult(result);
+      setRefreshTrigger((prev) => prev + 1);
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,10 +59,21 @@ export default function App() {
     }
   };
 
-  const handleMachineChange = (machineId) => {
-    setSelectedMachine(machineId);
+  const handleMachineTypeChange = (machineType) => {
+    setSelectedMachine(machineType);
     setSelectedFile(null);
     setAnalysisResult(null);
+    const prefix = machineType === 'pump' ? 'p' : machineType === 'valve' ? 'v' : 'f';
+    setSelectedMachineId(`${prefix}001`);
+  };
+
+  const handleMachineIdChange = (newMachineId) => {
+    setSelectedMachineId(newMachineId);
+  };
+
+  const handleAnomalyAssigned = (targetMachineId) => {
+    setSelectedMachineId(targetMachineId);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   return (
@@ -69,7 +86,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="brand-title">VISION</h1>
-            <p className="brand-subtitle">TinyML Industrial Acoustic Anomaly Detector</p>
+            <p className="brand-subtitle">TinyML Industrial Acoustic Anomaly Detector & Predictive Maintenance Hub</p>
           </div>
         </div>
 
@@ -85,19 +102,22 @@ export default function App() {
       <main className="dashboard-grid">
         {/* Left Column: Audio Ingestion & Spectrogram */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Card: Audio Uploader */}
+          {/* Card: Audio Uploader with Machine Asset Selection */}
           <div className="glass-panel">
             <div className="card-header">
               <h2 className="card-title">
                 <Radio size={18} color="var(--accent-cyan)" />
-                1 · Audio Processor (Librosa)
+                1 · Audio Processor & Asset Selector
               </h2>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Inspector's Ears</span>
             </div>
             <div className="card-body">
               <AudioUploader
                 selectedMachine={selectedMachine}
-                onMachineChange={handleMachineChange}
+                onMachineChange={handleMachineTypeChange}
+                selectedMachineId={selectedMachineId}
+                onMachineIdChange={handleMachineIdChange}
+                refreshTrigger={refreshTrigger}
                 onFileSelected={handleFileSelect}
                 onSampleSelected={handleSampleSelect}
                 isAnalyzing={isAnalyzing}
@@ -137,7 +157,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Column: AI Brain & Anomaly Decision */}
+        {/* Right Column: AI Brain, Decision & Anomaly Action Menu */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Card: AI Decision & Reconstruction Gauge */}
           <div className="glass-panel">
@@ -150,17 +170,29 @@ export default function App() {
             </div>
             <div className="card-body">
               {analysisResult ? (
-                <AnomalyGauge
-                  score={analysisResult.score}
-                  threshold={analysisResult.threshold}
-                  isAnomaly={analysisResult.is_anomaly}
-                  analysisResult={analysisResult}
-                />
+                <>
+                  <AnomalyGauge
+                    score={analysisResult.score}
+                    threshold={analysisResult.threshold}
+                    isAnomaly={analysisResult.is_anomaly}
+                    analysisResult={analysisResult}
+                  />
+
+                  {/* Interactive Anomaly Action Menu if Anomaly is detected */}
+                  {analysisResult.is_anomaly && (
+                    <AnomalyActionMenu
+                      analysisResult={analysisResult}
+                      selectedMachineType={selectedMachine}
+                      currentMachineId={selectedMachineId}
+                      onAnomalyAssigned={handleAnomalyAssigned}
+                    />
+                  )}
+                </>
               ) : (
                 <div style={{ textAlign: 'center', padding: '52px 20px', color: 'var(--text-muted)' }}>
                   <Cpu size={36} color="var(--accent-cyan)" style={{ opacity: 0.35, marginBottom: '12px' }} />
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    Ready to Inspect {selectedMachine === 'pump' ? 'Pump' : selectedMachine === 'valve' ? 'Valve' : 'Fan'}
+                    Ready to Inspect {selectedMachine === 'pump' ? 'Pump' : selectedMachine === 'valve' ? 'Valve' : 'Fan'} ({selectedMachineId})
                   </div>
                   <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-muted)' }}>
                     Baseline calibrated at τ = {selectedMachine === 'pump' ? '0.0201' : selectedMachine === 'valve' ? '0.0155' : '0.0179'}. Awaiting audio input.
@@ -176,11 +208,18 @@ export default function App() {
               <Info size={16} /> How the Digital Inspector Decides:
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-              The <strong>Autoencoder</strong> compressed this audio down to an 8×8 bottleneck and tried to reconstruct the original sound. Normal machine hum reconstructs easily (low error). When damaged gears, bearing rattles, or air leaks occur, the AI cannot reconstruct the unexpected patterns, producing a high error spike that triggers the <strong>🔴 ANOMALY</strong> alert.
+              The <strong>Autoencoder</strong> compressed this audio down to an 8×8 bottleneck and reconstructed the original sound. Normal machine hum reconstructs easily (low error). When damaged gears, bearing rattles, or fluid leaks occur, high reconstruction error triggers the <strong>🔴 ANOMALY</strong> alert, allowing you to log it to the machine's historical record.
             </p>
           </div>
         </div>
       </main>
+
+      {/* Machine Asset Prognostics & Predictive Fault Analysis */}
+      <MachinePrognosticsCard
+        machineId={selectedMachineId}
+        machineType={selectedMachine}
+        refreshTrigger={refreshTrigger}
+      />
 
       {/* Gemini LLM Anomaly Diagnostics & Maintenance Advisory */}
       {analysisResult && (
