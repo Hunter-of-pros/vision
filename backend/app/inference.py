@@ -95,14 +95,36 @@ class AnomalyDetector:
         self.threshold = threshold
         self.torch_model = None
         self.interpreter = None
+        self.onnx_session = None
+        self.onnx_input_name = None
+        self.onnx_output_name = None
         # Adaptive Exponential Moving Average baselines for factory noise drift
         self.ema_baseline = {k: v["mu"] for k, v in MACHINE_BASELINES.items()}
         self._load_model()
 
     def _load_model(self):
-        """Loads PyTorch model if available, otherwise attempts TFLite interpreter."""
-        # 1. Try PyTorch model
+        """Loads model — tries ONNX first (serverless-friendly), then PyTorch, then TFLite."""
         backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        # 1. Try ONNX Runtime (primary — lightweight, works on Vercel serverless)
+        possible_onnx_paths = [
+            os.path.join(backend_dir, "models", "autoencoder.onnx"),
+            "backend/models/autoencoder.onnx",
+            "models/autoencoder.onnx",
+        ]
+        for p in possible_onnx_paths:
+            if os.path.exists(p):
+                try:
+                    import onnxruntime as ort
+                    self.onnx_session = ort.InferenceSession(p, providers=["CPUExecutionProvider"])
+                    self.onnx_input_name = self.onnx_session.get_inputs()[0].name
+                    self.onnx_output_name = self.onnx_session.get_outputs()[0].name
+                    print(f"✅ Loaded ONNX autoencoder from {p}")
+                    return
+                except Exception as e:
+                    print(f"[Warning] Failed loading ONNX model from {p}: {e}")
+
+        # 2. Try PyTorch model (fallback for local dev with GPU)
         possible_pt_paths = [
             self.torch_model_path,
             os.path.join(backend_dir, "models", "autoencoder.pt"),
@@ -113,9 +135,12 @@ class AnomalyDetector:
             if os.path.exists(p):
                 try:
                     import torch
-                    from backend.scripts.train import ConvAutoencoder
+                    try:
+                        from backend.scripts.train import ConvAutoencoder
+                    except ImportError:
+                        from scripts.train import ConvAutoencoder
                     model = ConvAutoencoder()
-                    model.load_state_dict(torch.load(p, map_location="cpu"))
+                    model.load_state_dict(torch.load(p, map_location="cpu", weights_only=True))
                     model.eval()
                     self.torch_model = model
                     print(f"✅ Loaded trained PyTorch autoencoder weights from {p}")
@@ -123,7 +148,7 @@ class AnomalyDetector:
                 except Exception as e:
                     print(f"[Warning] Failed loading PyTorch model from {p}: {e}")
 
-        # 2. Try TFLite interpreter
+        # 3. Try TFLite interpreter
         possible_tflite_paths = [self.tflite_model_path, "models/autoencoder.tflite"]
         for p in possible_tflite_paths:
             if os.path.exists(p):
@@ -152,7 +177,14 @@ class AnomalyDetector:
         # Expand dims for batch and channel: (1, 1, 64, 64)
         input_tensor = np.expand_dims(np.expand_dims(spectrogram, axis=0), axis=0).astype(np.float32)
 
-        if self.torch_model is not None:
+        if self.onnx_session is not None:
+            # ONNX Runtime — primary path (lightweight, works on Vercel serverless)
+            outputs = self.onnx_session.run(
+                [self.onnx_output_name], {self.onnx_input_name: input_tensor}
+            )
+            reconstructed_spec = np.array(outputs[0]).squeeze()
+
+        elif self.torch_model is not None:
             import torch
             with torch.no_grad():
                 x = torch.from_numpy(input_tensor)

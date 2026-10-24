@@ -10,7 +10,20 @@ for p in [BASE_DIR, BACKEND_DIR]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from app.main import app
+# Load backend .env if present (local dev)
+from dotenv import load_dotenv
+_env_candidates = [
+    os.path.join(BACKEND_DIR, ".env"),
+    os.path.join(BASE_DIR, ".env"),
+    os.path.join(BASE_DIR, ".env.local"),
+]
+for _env in _env_candidates:
+    if os.path.exists(_env):
+        load_dotenv(_env, override=True)
+        break
 
-# Vercel Serverless Function entrypoint
-# Vercel's @vercel/python runtime automatically detects and serves the FastAPI 'app'
+from app.main import app  # noqa: E402 — must import after sys.path setup
+
+# Vercel Serverless Function entrypoint.
+# Vercel's @vercel/python runtime automatically detects and serves the FastAPI 'app'.
+# All /api/* routes are handled internally by FastAPI's router.

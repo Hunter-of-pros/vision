@@ -143,7 +143,7 @@ def get_machine_baselines() -> Dict[str, Any]:
     Returns pre-calibrated and adaptive statistical baselines (mu, sigma, thresholds)
     for industrial machine assets.
     """
-    from backend.app.inference import MACHINE_BASELINES
+    from app.inference import MACHINE_BASELINES
     return {
         "active_machine": "PUMP",
         "baselines": MACHINE_BASELINES,

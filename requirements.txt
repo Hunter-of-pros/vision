@@ -9,3 +9,4 @@ dnspython>=2.6.0
 certifi>=2024.2.2
 google-genai>=0.1.1
 soundfile>=0.12.1
+onnxruntime>=1.17.0
