@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Radio, Cpu, RefreshCw, Info, ShieldCheck } from 'lucide-react';
+import { Activity, Radio, Cpu, RefreshCw, Info, ShieldCheck, AlertTriangle } from 'lucide-react';
 import AudioUploader from './components/AudioUploader';
 import Spectrogram from './components/Spectrogram';
 import AnomalyGauge from './components/AnomalyGauge';
@@ -20,13 +20,25 @@ export default function App() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Load initial model profile and check backend status
+  // Load initial model profile, check backend status, and auto-load nominal baseline
   useEffect(() => {
     async function init() {
       const isOnline = await checkBackendHealth();
       setBackendOnline(isOnline);
       const profile = await fetchModelProfile();
       setProfileData(profile);
+
+      // Auto-load initial baseline sample so spectrogram graph and normal status display immediately
+      try {
+        const defaultSample = 'normal_id_00_00000000.wav';
+        setSelectedFile({ name: defaultSample });
+        const result = await analyzePreset(defaultSample, false, 'pump', 'p001');
+        if (result) {
+          setAnalysisResult(result);
+        }
+      } catch (err) {
+        console.warn('Initial preset analysis auto-load skipped:', err);
+      }
     }
     init();
   }, []);

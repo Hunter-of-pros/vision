@@ -431,7 +431,7 @@ export async function analyzeAudioFile(file, isMockAnomaly = false, machineType 
     const res = await fetch(`${API_BASE}/analyze?${query.toString()}`, {
       method: 'POST',
       body: formData,
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (res.ok) {
@@ -461,7 +461,7 @@ export async function analyzePreset(sampleFilename = 'normal_id_00_00000000.wav'
     if (machineId) query.set('machine_id', machineId);
 
     const res = await fetch(`${API_BASE}/sample-analyze?${query.toString()}`, {
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (res.ok) {

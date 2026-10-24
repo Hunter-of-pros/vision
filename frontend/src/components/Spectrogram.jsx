@@ -8,66 +8,77 @@ export default function Spectrogram({ spectrogramMatrix, title = 'Log-Mel Spectr
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    const height = spectrogramMatrix.length;      // 64 bins
-    const width = spectrogramMatrix[0].length;    // 64 frames
+    const height = spectrogramMatrix.length;      // 64 bins (frequencies)
+    const width = spectrogramMatrix[0].length;    // 64 frames (time)
 
-    // Set internal resolution matching data
-    canvas.width = width;
-    canvas.height = height;
+    // Compute display dimensions matching container
+    const displayWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 600;
+    const displayHeight = 220;
 
-    const imgData = ctx.createImageData(width, height);
-    const data = imgData.data;
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
 
-    // Colormap function (Magma / Inferno-inspired industrial gradient)
-    const getColor = (normalizedVal) => {
-      // normalizedVal in [0, 1]
-      const v = Math.max(0, Math.min(1, (normalizedVal + 1) / 2)); // map [-1, 1] to [0, 1]
-      
-      let r, g, b;
-      if (v < 0.25) {
-        // Deep purple to navy
-        r = Math.floor(v * 4 * 60);
-        g = Math.floor(v * 4 * 10);
-        b = Math.floor(70 + v * 4 * 120);
-      } else if (v < 0.6) {
-        // Magenta / Hot Pink
-        const t = (v - 0.25) / 0.35;
-        r = Math.floor(60 + t * 180);
-        g = Math.floor(10 + t * 40);
-        b = Math.floor(190 - t * 60);
-      } else if (v < 0.85) {
-        // Vivid Orange
-        const t = (v - 0.6) / 0.25;
-        r = Math.floor(240 + t * 15);
-        g = Math.floor(50 + t * 130);
-        b = Math.floor(130 - t * 110);
-      } else {
-        // Bright Yellow/White
-        const t = (v - 0.85) / 0.15;
-        r = 255;
-        g = Math.floor(180 + t * 75);
-        b = Math.floor(20 + t * 200);
-      }
-
-      return [r, g, b];
-    };
-
-    // Draw row by row (inverted so low frequencies are at bottom)
-    for (let row = 0; row < height; row++) {
-      const sourceRow = height - 1 - row; // flip Y for frequency axis
-      for (let col = 0; col < width; col++) {
-        const val = spectrogramMatrix[sourceRow][col];
-        const [r, g, b] = getColor(val);
-        const pixelIndex = (row * width + col) * 4;
-
-        data[pixelIndex] = r;
-        data[pixelIndex + 1] = g;
-        data[pixelIndex + 2] = b;
-        data[pixelIndex + 3] = 255;
+    // Find matrix min & max for dynamic high-contrast scaling
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) {
+        const v = spectrogramMatrix[r][c];
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
       }
     }
+    const valRange = maxVal - minVal > 1e-4 ? maxVal - minVal : 1;
 
-    ctx.putImageData(imgData, 0, 0);
+    // Colormap function (Vibrant Magma / Inferno industrial thermal gradient)
+    const getColor = (normalizedVal) => {
+      const v = Math.max(0, Math.min(1, normalizedVal));
+      let r, g, b;
+      if (v < 0.25) {
+        // Deep indigo / purple
+        r = Math.floor(v * 4 * 60);
+        g = Math.floor(v * 4 * 15);
+        b = Math.floor(80 + v * 4 * 120);
+      } else if (v < 0.6) {
+        // Hot Magenta / Pink
+        const t = (v - 0.25) / 0.35;
+        r = Math.floor(60 + t * 185);
+        g = Math.floor(15 + t * 45);
+        b = Math.floor(200 - t * 70);
+      } else if (v < 0.85) {
+        // Bright Orange / Amber
+        const t = (v - 0.6) / 0.25;
+        r = Math.floor(245 + t * 10);
+        g = Math.floor(60 + t * 130);
+        b = Math.floor(130 - t * 110);
+      } else {
+        // Radiant Yellow / White
+        const t = (v - 0.85) / 0.15;
+        r = 255;
+        g = Math.floor(190 + t * 65);
+        b = Math.floor(20 + t * 210);
+      }
+      return `rgb(${r},${g},${b})`;
+    };
+
+    const cellWidth = displayWidth / width;
+    const cellHeight = displayHeight / height;
+
+    // Draw cells (inverted Y so lowest frequencies are at the bottom)
+    for (let row = 0; row < height; row++) {
+      const sourceRow = height - 1 - row;
+      const y = Math.floor(row * cellHeight);
+      const h = Math.ceil(cellHeight) + 1;
+
+      for (let col = 0; col < width; col++) {
+        const val = spectrogramMatrix[sourceRow][col];
+        const norm = (val - minVal) / valRange;
+        ctx.fillStyle = getColor(norm);
+        const x = Math.floor(col * cellWidth);
+        const w = Math.ceil(cellWidth) + 1;
+        ctx.fillRect(x, y, w, h);
+      }
+    }
   }, [spectrogramMatrix]);
 
   return (

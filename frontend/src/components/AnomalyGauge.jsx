@@ -46,9 +46,18 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
   const bands = analysisResult?.frequency_bands || [];
   const primaryDefect = analysisResult?.primary_defect_band || 'Uniformly Nominal';
 
-  const dynamicThreshold = dynMetrics?.dynamic_threshold || threshold || 0.0201;
+  const numScore = typeof score === 'number' ? score : parseFloat(score) || 0;
+  const dynamicThreshold = dynMetrics?.dynamic_threshold || (typeof threshold === 'number' ? threshold : parseFloat(threshold)) || 0.0201;
   const activeThreshold = dynamicThreshold;
-  const activeIsAnomaly = score >= activeThreshold;
+
+  // Determine true anomaly state: honor backend analysisResult decision first, then status string, then threshold comparison
+  const activeIsAnomaly = analysisResult?.is_anomaly !== undefined
+    ? Boolean(analysisResult.is_anomaly)
+    : analysisResult?.status
+    ? String(analysisResult.status).toLowerCase() === 'anomaly'
+    : typeof isAnomaly === 'boolean'
+    ? isAnomaly
+    : numScore >= activeThreshold;
 
   const lastAlertKeyRef = useRef(null);
 
@@ -105,7 +114,7 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
             margin: '2px 0',
           }}
         >
-          {score.toFixed(4)}
+          {numScore.toFixed(4)}
         </div>
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <span>
