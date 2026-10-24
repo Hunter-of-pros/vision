@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Radio, Cpu, RefreshCw, Info, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Activity, Radio, Cpu, RefreshCw, Info, ShieldCheck, AlertTriangle, Volume2 } from 'lucide-react';
 import AudioUploader from './components/AudioUploader';
 import Spectrogram from './components/Spectrogram';
 import AnomalyGauge from './components/AnomalyGauge';
@@ -8,6 +8,7 @@ import LLMAdvisorCard from './components/LLMAdvisorCard';
 import AnomalyActionMenu from './components/AnomalyActionMenu';
 import MachinePrognosticsCard from './components/MachinePrognosticsCard';
 import { analyzeAudioFile, analyzePreset, fetchModelProfile, checkBackendHealth } from './services/api';
+import { playAnomalyAlarm, unlockAudioContext } from './services/sound';
 
 export default function App() {
   const [selectedMachine, setSelectedMachine] = useState('pump');
@@ -44,6 +45,7 @@ export default function App() {
   }, []);
 
   const handleFileSelect = async (file) => {
+    unlockAudioContext();
     setSelectedFile(file);
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -51,6 +53,16 @@ export default function App() {
       const result = await analyzeAudioFile(file, false, selectedMachine, selectedMachineId);
       setAnalysisResult(result);
       setRefreshTrigger((prev) => prev + 1);
+
+      // Trigger alarm buzzer if anomaly or crosses threshold
+      const isAnom = Boolean(
+        result?.is_anomaly ||
+        result?.status === 'anomaly' ||
+        (result?.score !== undefined && result?.threshold !== undefined && result.score >= result.threshold)
+      );
+      if (isAnom) {
+        playAnomalyAlarm();
+      }
     } catch (err) {
       console.error(err);
       setAnalysisError(err.message || 'Failed to analyze uploaded audio clip. Please check backend connection.');
@@ -60,6 +72,7 @@ export default function App() {
   };
 
   const handleSampleSelect = async (sampleName, isAnomaly, machineOverride) => {
+    unlockAudioContext();
     const machine = machineOverride || selectedMachine;
     setSelectedFile({ name: sampleName });
     setIsAnalyzing(true);
@@ -68,6 +81,17 @@ export default function App() {
       const result = await analyzePreset(sampleName, isAnomaly, machine, selectedMachineId);
       setAnalysisResult(result);
       setRefreshTrigger((prev) => prev + 1);
+
+      // Trigger alarm buzzer if anomaly or crosses threshold
+      const isAnom = Boolean(
+        result?.is_anomaly ||
+        result?.status === 'anomaly' ||
+        isAnomaly ||
+        (result?.score !== undefined && result?.threshold !== undefined && result.score >= result.threshold)
+      );
+      if (isAnom) {
+        playAnomalyAlarm();
+      }
     } catch (err) {
       console.error(err);
       setAnalysisError(err.message || 'Failed to process sample audio clip. Please check backend connection.');
@@ -108,6 +132,28 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => {
+              unlockAudioContext();
+              playAnomalyAlarm();
+            }}
+            className="header-badge"
+            style={{
+              cursor: 'pointer',
+              background: 'rgba(239, 68, 68, 0.15)',
+              borderColor: 'var(--danger)',
+              color: '#fca5a5',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Click to test your speaker sound with the acoustic anomaly warning alarm"
+          >
+            <Volume2 size={14} color="var(--danger)" />
+            <span>TEST ALARM BEEP</span>
+          </button>
+
           <div className="header-badge">
             <span className="pulse-dot" style={{ backgroundColor: backendOnline ? 'var(--success)' : 'var(--accent-cyan)' }} />
             {backendOnline ? 'BACKEND CONNECTED' : 'EDGE DEMO ENGINE'}

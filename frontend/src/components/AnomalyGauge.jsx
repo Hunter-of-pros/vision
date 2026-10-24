@@ -1,94 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { AlertOctagon, CheckCircle2, BarChart2, ShieldAlert, Volume2 } from 'lucide-react';
-
-// Pre-synthesized 8kHz base64 WAV double-beep (880Hz & 1250Hz) fallback
-const FALLBACK_BEEP_DATA_URI =
-  'data:audio/wav;base64,UklGRhQLAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YfAKAACAzPLfnUwVFEmZ3fLPhDcOH2Cx6u27aiUNL3nG8eOkUhgSQpLZ89SLPBAbWarm78FyKg0qcsHv5qpZGxA8i9Tz2ZJCEhhSpOPxxnkvDSVqu+3qsWAfDjeEz/LdmUkUFUyd3/LMgDQOIWO06+y3ZyMOMXzJ8uGgTxYTRZbb89GHOg8dXK7o7r5uJw0sdcTw5adWGhE/jtbz1o4/ERpWp+XwxHUsDSduvu7orlwdDzqH0fPblkUTFk+g4fLJfDEOI2e37Ou0YyEONIDM8t+dTBUUSZnd8s+ENw4fYLHq7btqJQ0vecbx46RSGBJCktnz1Is8EBtZqubvwXIqDSpywe/mqlkbEDyL1PPZkkISGFKk4/HGeS8NJWq77eqxYB8ON4TP8t2ZSRQVTJ3f8syANA4hY7Tr7LdnIw4xfMny4aBPFhNFltvz0Yc6Dx1crujuvm4nDSx1xPDlp1YaET+O1vPWjj8RGlan5fDEdSwNJ26+7uiuXB0POofR89uWRRMWT6Dh8sl8MQ4jZ7fs67RjIQ40gMzy351MFRRJmd3yz4Q3Dh9gsertu2olDS95xvHjpFIYEkKS2fPUizwQG1mq5u/BcioNKnLB7+aqWRsQPIvU89mSQhIYUqTj8cZ5Lw0larvt6rFgHw43hM/y3ZlJFBVMnd/yzIA0DiFjtOvst2cjDjF8yfLhoE8WgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
-
-let sharedAudioCtx = null;
-
-function getSharedAudioContext() {
-  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextClass) {
-      sharedAudioCtx = new AudioContextClass();
-    }
-  }
-  return sharedAudioCtx;
-}
-
-// Automatically unlock audio context on initial user click
-if (typeof window !== 'undefined') {
-  const unlockAudio = () => {
-    const ctx = getSharedAudioContext();
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
-  };
-  window.addEventListener('click', unlockAudio, { passive: true });
-  window.addEventListener('keydown', unlockAudio, { passive: true });
-}
-
-function playHtmlAudioFallback() {
-  try {
-    const audio = new Audio(FALLBACK_BEEP_DATA_URI);
-    audio.volume = 0.6;
-    audio.play().catch((err) => console.warn('HTML5 Audio fallback blocked:', err));
-  } catch (err) {
-    console.warn('HTML5 Audio init failed:', err);
-  }
-}
-
-/**
- * Generates an unmistakable industrial warning alarm:
- * Pulse 1: 950 Hz, Pulse 2: 1250 Hz (high alert), Pulse 3: 950 Hz
- */
-export function playAnomalyAlertBeep() {
-  try {
-    const ctx = getSharedAudioContext();
-    if (!ctx) {
-      playHtmlAudioFallback();
-      return;
-    }
-
-    const triggerTones = () => {
-      const now = ctx.currentTime;
-      const playTone = (freq, startOffset, duration, volume = 0.38) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'triangle'; // Rich audible harmonics
-        osc.frequency.setValueAtTime(freq, now + startOffset);
-
-        gain.gain.setValueAtTime(0.0001, now + startOffset);
-        gain.gain.linearRampToValueAtTime(volume, now + startOffset + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(now + startOffset);
-        osc.stop(now + startOffset + duration);
-      };
-
-      // 3-pulse industrial warning chirp
-      playTone(950, 0.00, 0.12, 0.40);
-      playTone(1250, 0.15, 0.15, 0.45);
-      playTone(950, 0.34, 0.13, 0.40);
-    };
-
-    if (ctx.state === 'suspended') {
-      ctx.resume().then(() => triggerTones()).catch(() => playHtmlAudioFallback());
-    } else {
-      triggerTones();
-    }
-  } catch (err) {
-    console.warn('Anomaly audio alert failed, using HTML5 fallback:', err);
-    playHtmlAudioFallback();
-  }
-}
+import { playAnomalyAlarm, unlockAudioContext } from '../services/sound';
 
 export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly = false, analysisResult = null }) {
   const dynMetrics = analysisResult?.dynamic_metrics || null;
@@ -116,10 +28,10 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
   // Automatically trigger beep sound whenever score crosses threshold or anomaly is registered
   useEffect(() => {
     if (analysisResult && crossesThreshold) {
-      const alertKey = `${analysisResult.filename || 'sample'}_${numScore}_${crossesThreshold}`;
+      const alertKey = `${analysisResult.filename || 'sample'}_${numScore}_${crossesThreshold}_${Date.now()}`;
       if (lastAlertKeyRef.current !== alertKey) {
         lastAlertKeyRef.current = alertKey;
-        playAnomalyAlertBeep();
+        playAnomalyAlarm();
       }
     }
   }, [analysisResult, crossesThreshold, numScore]);
@@ -131,6 +43,11 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
 
   const zScore = dynMetrics?.z_score !== undefined ? dynMetrics.z_score : (score - 0.0135) / 0.0022;
 
+  const handleManualBeep = () => {
+    unlockAudioContext();
+    playAnomalyAlarm();
+  };
+
   return (
     <div style={{ textAlign: 'center' }}>
       {/* Top Status Pill */}
@@ -138,11 +55,14 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
         {activeIsAnomaly ? (
           <div
             className="status-pill status-anomaly"
-            onClick={playAnomalyAlertBeep}
-            style={{ cursor: 'pointer' }}
-            title="Alarm beep sounded · Click to replay"
+            onClick={handleManualBeep}
+            style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            title="Alarm beep active · Click to replay sound"
           >
-            <AlertOctagon size={16} /> Anomaly Detected <Volume2 size={14} style={{ marginLeft: '4px', opacity: 0.9 }} />
+            <AlertOctagon size={16} /> Anomaly Detected
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>
+              <Volume2 size={13} /> Replay Beep
+            </span>
           </div>
         ) : (
           <div className="status-pill status-normal">
