@@ -98,15 +98,25 @@ class AnomalyDetector:
         self.onnx_session = None
         self.onnx_input_name = None
         self.onnx_output_name = None
+        self.numpy_model = None
         # Adaptive Exponential Moving Average baselines for factory noise drift
         self.ema_baseline = {k: v["mu"] for k, v in MACHINE_BASELINES.items()}
         self._load_model()
 
     def _load_model(self):
-        """Loads model — tries ONNX first (serverless-friendly), then PyTorch, then TFLite."""
+        """Loads model — tries pure-numpy first (serverless), then ONNX, PyTorch, TFLite."""
         backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-        # 1. Try ONNX Runtime (primary — lightweight, works on Vercel serverless)
+        # 1. Try pure-numpy engine (primary — zero deps, works on Vercel serverless)
+        try:
+            from app.numpy_inference import load_numpy_autoencoder
+            self.numpy_model = load_numpy_autoencoder()
+            if self.numpy_model is not None:
+                return
+        except Exception as e:
+            print(f"[Warning] Failed loading numpy autoencoder: {e}")
+
+        # 2. Try ONNX Runtime (if available locally)
         possible_onnx_paths = [
             os.path.join(backend_dir, "models", "autoencoder.onnx"),
             "backend/models/autoencoder.onnx",
@@ -124,7 +134,7 @@ class AnomalyDetector:
                 except Exception as e:
                     print(f"[Warning] Failed loading ONNX model from {p}: {e}")
 
-        # 2. Try PyTorch model (fallback for local dev with GPU)
+        # 3. Try PyTorch model (fallback for local dev with GPU)
         possible_pt_paths = [
             self.torch_model_path,
             os.path.join(backend_dir, "models", "autoencoder.pt"),
@@ -148,7 +158,7 @@ class AnomalyDetector:
                 except Exception as e:
                     print(f"[Warning] Failed loading PyTorch model from {p}: {e}")
 
-        # 3. Try TFLite interpreter
+        # 4. Try TFLite interpreter
         possible_tflite_paths = [self.tflite_model_path, "models/autoencoder.tflite"]
         for p in possible_tflite_paths:
             if os.path.exists(p):
@@ -177,8 +187,12 @@ class AnomalyDetector:
         # Expand dims for batch and channel: (1, 1, 64, 64)
         input_tensor = np.expand_dims(np.expand_dims(spectrogram, axis=0), axis=0).astype(np.float32)
 
-        if self.onnx_session is not None:
-            # ONNX Runtime — primary path (lightweight, works on Vercel serverless)
+        if self.numpy_model is not None:
+            # Pure-numpy engine — primary path (zero deps, works on Vercel serverless)
+            reconstructed_spec = self.numpy_model.forward(input_tensor).squeeze()
+
+        elif self.onnx_session is not None:
+            # ONNX Runtime — fallback for local dev
             outputs = self.onnx_session.run(
                 [self.onnx_output_name], {self.onnx_input_name: input_tensor}
             )
