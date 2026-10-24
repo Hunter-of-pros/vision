@@ -1,43 +1,92 @@
 import React, { useEffect, useRef } from 'react';
 import { AlertOctagon, CheckCircle2, BarChart2, ShieldAlert, Volume2 } from 'lucide-react';
 
+// Pre-synthesized 8kHz base64 WAV double-beep (880Hz & 1250Hz) fallback
+const FALLBACK_BEEP_DATA_URI =
+  'data:audio/wav;base64,UklGRhQLAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YfAKAACAzPLfnUwVFEmZ3fLPhDcOH2Cx6u27aiUNL3nG8eOkUhgSQpLZ89SLPBAbWarm78FyKg0qcsHv5qpZGxA8i9Tz2ZJCEhhSpOPxxnkvDSVqu+3qsWAfDjeEz/LdmUkUFUyd3/LMgDQOIWO06+y3ZyMOMXzJ8uGgTxYTRZbb89GHOg8dXK7o7r5uJw0sdcTw5adWGhE/jtbz1o4/ERpWp+XwxHUsDSduvu7orlwdDzqH0fPblkUTFk+g4fLJfDEOI2e37Ou0YyEONIDM8t+dTBUUSZnd8s+ENw4fYLHq7btqJQ0vecbx46RSGBJCktnz1Is8EBtZqubvwXIqDSpywe/mqlkbEDyL1PPZkkISGFKk4/HGeS8NJWq77eqxYB8ON4TP8t2ZSRQVTJ3f8syANA4hY7Tr7LdnIw4xfMny4aBPFhNFltvz0Yc6Dx1crujuvm4nDSx1xPDlp1YaET+O1vPWjj8RGlan5fDEdSwNJ26+7uiuXB0POofR89uWRRMWT6Dh8sl8MQ4jZ7fs67RjIQ40gMzy351MFRRJmd3yz4Q3Dh9gsertu2olDS95xvHjpFIYEkKS2fPUizwQG1mq5u/BcioNKnLB7+aqWRsQPIvU89mSQhIYUqTj8cZ5Lw0larvt6rFgHw43hM/y3ZlJFBVMnd/yzIA0DiFjtOvst2cjDjF8yfLhoE8WgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggCAWatHxrEANQKzx0WoWIIDg6pYvD1TA88BUDy+W6uCAIBZq0fGsQA1ArPHRahYggODqli8PVMDzwFQPL5bq4IAgFmrR8axADUCs8dFqFiCA4OqWLw9UwPPAVA8vlurggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+
+let sharedAudioCtx = null;
+
+function getSharedAudioContext() {
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      sharedAudioCtx = new AudioContextClass();
+    }
+  }
+  return sharedAudioCtx;
+}
+
+// Automatically unlock audio context on initial user click
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    const ctx = getSharedAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('keydown', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio, { passive: true });
+}
+
+function playHtmlAudioFallback() {
+  try {
+    const audio = new Audio(FALLBACK_BEEP_DATA_URI);
+    audio.volume = 0.6;
+    audio.play().catch((err) => console.warn('HTML5 Audio fallback blocked:', err));
+  } catch (err) {
+    console.warn('HTML5 Audio init failed:', err);
+  }
+}
+
 /**
- * Generates an industrial double-beep acoustic alarm using the Web Audio API.
- * Pulse 1: 880 Hz (A5), Pulse 2: 1100 Hz (C#6)
+ * Generates an unmistakable industrial warning alarm:
+ * Pulse 1: 950 Hz, Pulse 2: 1250 Hz (high alert), Pulse 3: 950 Hz
  */
 export function playAnomalyAlertBeep() {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume();
+    const ctx = getSharedAudioContext();
+    if (!ctx) {
+      playHtmlAudioFallback();
+      return;
     }
 
-    const now = ctx.currentTime;
+    const triggerTones = () => {
+      const now = ctx.currentTime;
+      const playTone = (freq, startOffset, duration, volume = 0.38) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-    const playPulse = (freq, startOffset, duration) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+        osc.type = 'triangle'; // Rich audible harmonics
+        osc.frequency.setValueAtTime(freq, now + startOffset);
 
-      osc.type = 'triangle'; // Crisp industrial buzzer harmonics
-      osc.frequency.setValueAtTime(freq, now + startOffset);
+        gain.gain.setValueAtTime(0.0001, now + startOffset);
+        gain.gain.linearRampToValueAtTime(volume, now + startOffset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
 
-      gain.gain.setValueAtTime(0.0001, now + startOffset);
-      gain.gain.linearRampToValueAtTime(0.28, now + startOffset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+        osc.start(now + startOffset);
+        osc.stop(now + startOffset + duration);
+      };
 
-      osc.start(now + startOffset);
-      osc.stop(now + startOffset + duration);
+      // 3-pulse industrial warning chirp
+      playTone(950, 0.00, 0.12, 0.40);
+      playTone(1250, 0.15, 0.15, 0.45);
+      playTone(950, 0.34, 0.13, 0.40);
     };
 
-    playPulse(880, 0.0, 0.13);       // Beep 1
-    playPulse(1100, 0.18, 0.22);     // Beep 2 (higher urgent alert)
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => triggerTones()).catch(() => playHtmlAudioFallback());
+    } else {
+      triggerTones();
+    }
   } catch (err) {
-    console.warn('Anomaly audio alert failed:', err);
+    console.warn('Anomaly audio alert failed, using HTML5 fallback:', err);
+    playHtmlAudioFallback();
   }
 }
 
@@ -50,7 +99,7 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
   const dynamicThreshold = dynMetrics?.dynamic_threshold || (typeof threshold === 'number' ? threshold : parseFloat(threshold)) || 0.0201;
   const activeThreshold = dynamicThreshold;
 
-  // Determine true anomaly state: honor backend analysisResult decision first, then status string, then threshold comparison
+  // True anomaly state: honor backend analysisResult decision first, then status string, then threshold comparison
   const activeIsAnomaly = analysisResult?.is_anomaly !== undefined
     ? Boolean(analysisResult.is_anomaly)
     : analysisResult?.status
@@ -59,18 +108,21 @@ export default function AnomalyGauge({ score = 0, threshold = 0.020, isAnomaly =
     ? isAnomaly
     : numScore >= activeThreshold;
 
+  // Crosses threshold check
+  const crossesThreshold = Boolean(activeIsAnomaly || numScore >= activeThreshold);
+
   const lastAlertKeyRef = useRef(null);
 
-  // Automatically trigger beep sound whenever an anomaly crosses threshold
+  // Automatically trigger beep sound whenever score crosses threshold or anomaly is registered
   useEffect(() => {
-    if (analysisResult && activeIsAnomaly) {
-      const alertKey = `${analysisResult.filename || 'sample'}_${analysisResult.score}`;
+    if (analysisResult && crossesThreshold) {
+      const alertKey = `${analysisResult.filename || 'sample'}_${numScore}_${crossesThreshold}`;
       if (lastAlertKeyRef.current !== alertKey) {
         lastAlertKeyRef.current = alertKey;
         playAnomalyAlertBeep();
       }
     }
-  }, [analysisResult, activeIsAnomaly]);
+  }, [analysisResult, crossesThreshold, numScore]);
 
   // Meter percentage (0 to 0.20 range)
   const maxScale = 0.20;

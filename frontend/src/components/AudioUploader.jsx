@@ -144,7 +144,17 @@ export default function AudioUploader({
               type="button"
               className="btn-sample"
               disabled={isAnalyzing}
-              onClick={() => onSampleSelected(s.file, s.isAnomaly, activeMachine.id)}
+              onClick={() => {
+                // Ensure browser audio is unlocked by this direct user click gesture
+                try {
+                  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                  if (AudioCtx) {
+                    const ctx = new AudioCtx();
+                    if (ctx.state === 'suspended') ctx.resume();
+                  }
+                } catch {}
+                onSampleSelected(s.file, s.isAnomaly, activeMachine.id);
+              }}
             >
               {s.isAnomaly ? (
                 <AlertTriangle size={14} color="var(--danger)" />
